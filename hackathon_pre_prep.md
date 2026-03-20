@@ -242,7 +242,7 @@ class DoosanSafetyConfig:
     max_joint_velocity: float = 1.0        # ~57°/s (보수적)
     
     # Gripper
-    gripper_threshold: float = 0.5         # > 0.5 → open, < 0.5 → close
+    gripper_threshold: float = 0.5         # > 0.5 → close(닫힘), ≤ 0.5 → open(열림)
     
     def __post_init__(self):
         if self.joint_pos_lower is None:
@@ -400,7 +400,7 @@ def test_adapter():
     print(f"  gripper_open: {result['gripper_open']}")
     print(f"  was_clamped: {result['was_clamped']}")
     assert not result['was_clamped'], "Should not be clamped"
-    assert result['gripper_open'], "Gripper should be open (0.8 > 0.5)"
+    assert result['gripper_close'], "Gripper should be closed (0.8 > 0.5)"
     
     # Case 2: 과도한 delta → clamp 발동
     action_big = np.array([0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.3])
@@ -409,7 +409,7 @@ def test_adapter():
     print(f"  targets (deg): {np.rad2deg(result2['joint_targets'])}")
     print(f"  was_clamped: {result2['was_clamped']}")
     assert result2['was_clamped'], "Should be clamped"
-    assert not result2['gripper_open'], "Gripper should be closed (0.3 < 0.5)"
+    assert not result2['gripper_close'], "Gripper should be open (0.3 < 0.5)"
     
     # Case 3: Joint limit 근처에서 delta → position clamp
     adapter.set_current_state(
