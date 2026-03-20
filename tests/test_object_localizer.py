@@ -10,19 +10,25 @@ from PIL import Image, ImageDraw, ImageFont
 sys.path.append(str(Path(__file__).parent.parent))
 from utils.object_localizer import ObjectLocalizer
 
-img_path = Path(__file__).parent.parent / "data" / "base_images" / "base1.jpg"
+img_path = Path(__file__).parent.parent / "data" / "base_images" / "base12.jpg"
 out_dir  = Path(__file__).parent.parent / "results" / "localizer_vis"
 out_dir.mkdir(parents=True, exist_ok=True)
 
 # 이미지 로드
 image = np.array(Image.open(img_path).convert("RGB"))
 
+# 테이블 ROI (선택): 전체 이미지 중 테이블이 있는 영역만 SAM2에 입력
+# None으로 설정하면 전체 이미지 사용
+# 예: TABLE_REGION = (200, 300, 1100, 650)  # (x1, y1, x2, y2)
+TABLE_REGION = None
+
 # 파이프라인 실행
 localizer = ObjectLocalizer()
 output = localizer.run(
     image=image,
-    instruction="스프라이트 캔을 집어라",
+    instruction="노란 원기둥을 집어라",
     tasks=["graspability", "calibration"],
+    table_region=TABLE_REGION,
 )
 
 # 결과 출력
@@ -48,11 +54,12 @@ if len(pts_x) > 0:
 result_img = img_vis.convert("RGB")
 
 # crop 저장
-crop_path = out_dir / "base1_target_crop.jpg"
+scene = img_path.stem
+crop_path = out_dir / f"{scene}_target_crop.jpg"
 output["target_crop"].save(crop_path, quality=92)
 
 # overlay 저장
-vis_path = out_dir / "base1_mask_overlay.jpg"
+vis_path = out_dir / f"{scene}_mask_overlay.jpg"
 result_img.save(vis_path, quality=92)
 
 print(f"\n저장:")
