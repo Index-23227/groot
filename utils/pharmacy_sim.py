@@ -159,12 +159,20 @@ class SimRobot:
     def get_state(self):
         return self.joints.copy(), self.gripper
 
-    def send(self, joint_targets, gripper_open, dt=0.1):
-        self.joints = joint_targets.copy()
-        self.gripper = 1.0 if gripper_open else 0.0
+    def send(self, cmd, dt=0.1):
+        """adapter.convert() 결과를 받아 시뮬레이션 상태 업데이트."""
+        # dict 형태 (새 인터페이스) 또는 positional (하위 호환)
+        if isinstance(cmd, dict):
+            self.joints = cmd["joint_targets_rad"].copy()
+            self.gripper = cmd["grip_value"]
+            grip_str = "CLOSE" if cmd["gripper_close"] else "OPEN"
+        else:
+            # 하위 호환: send(joint_targets, gripper_open, dt)
+            self.joints = cmd.copy()
+            grip_str = "LEGACY"
         self.history.append({
             "joints_deg": np.rad2deg(self.joints).tolist(),
-            "gripper": "OPEN" if gripper_open else "CLOSE",
+            "gripper": grip_str,
         })
 
 
@@ -228,10 +236,10 @@ def run_simulation(scenario, args):
             joints, grip = robot.get_state()
             adapter.set_current_state(joints, grip)
             cmd = adapter.convert(act, dt)
-            robot.send(cmd["joint_targets"], cmd["gripper_open"], dt)
+            robot.send(cmd, dt)
 
             # 실패 감지
-            status = detector.update(cmd["joint_targets"], cmd["clamp_ratio"])
+            status = detector.update(cmd["joint_targets_rad"], cmd["clamp_ratio"])
 
             if status["should_fallback"]:
                 print(f"  ⚠️  [step {step}] 반복 실패 — classical fallback 전환")
@@ -247,9 +255,9 @@ def run_simulation(scenario, args):
                 break
 
             if step % 10 == 0:
-                grip_str = "OPEN" if cmd["gripper_open"] else "CLOSE"
-                joints_str = ", ".join(f"{d:.1f}" for d in np.rad2deg(cmd["joint_targets"]))
-                print(f"  [step {step:3d}] [{joints_str}] {grip_str}  clamp={cmd['clamp_ratio']:.0%}")
+                grip_str = "CLOSE" if cmd["gripper_close"] else "OPEN"
+                joints_str = ", ".join(f"{d:.1f}" for d in cmd["joint_targets_deg"])
+                print(f"  [step {step:3d}] [{joints_str}] {grip_str}(s={cmd['gripper_stroke']})  clamp={cmd['clamp_ratio']:.0%}")
 
             step += 1
 

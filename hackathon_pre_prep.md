@@ -30,9 +30,10 @@
 - **Controller IP (default)**: 192.168.127.100
 - **Controller Port (default)**: 12345
 
-### ROS2 Joint Names (doosan-robot2 패키지)
+### ROS2 Joint Names (e0509_gripper_description 패키지)
 ```
-joint1, joint2, joint3, joint4, joint5, joint6
+joint_1, joint_2, joint_3, joint_4, joint_5, joint_6
+gripper_rh_r1, gripper_rh_r2, gripper_rh_l1, gripper_rh_l2  (4개, 1-DOF)
 ```
 
 ---
@@ -60,8 +61,8 @@ DOOSAN_E0509_CONFIG = {
     
     # --- Joint Names (ROS2 doosan-robot2 convention) ---
     "joint_names": [
-        "joint1", "joint2", "joint3",
-        "joint4", "joint5", "joint6",
+        "joint_1", "joint_2", "joint_3",
+        "joint_4", "joint_5", "joint_6",
     ],
     
     # --- Joint Limits (radians) ---
@@ -241,7 +242,7 @@ class DoosanSafetyConfig:
     max_joint_velocity: float = 1.0        # ~57°/s (보수적)
     
     # Gripper
-    gripper_threshold: float = 0.5         # > 0.5 → open, < 0.5 → close
+    gripper_threshold: float = 0.5         # > 0.5 → close(닫힘), ≤ 0.5 → open(열림)
     
     def __post_init__(self):
         if self.joint_pos_lower is None:
@@ -399,7 +400,7 @@ def test_adapter():
     print(f"  gripper_open: {result['gripper_open']}")
     print(f"  was_clamped: {result['was_clamped']}")
     assert not result['was_clamped'], "Should not be clamped"
-    assert result['gripper_open'], "Gripper should be open (0.8 > 0.5)"
+    assert result['gripper_close'], "Gripper should be closed (0.8 > 0.5)"
     
     # Case 2: 과도한 delta → clamp 발동
     action_big = np.array([0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.3])
@@ -408,7 +409,7 @@ def test_adapter():
     print(f"  targets (deg): {np.rad2deg(result2['joint_targets'])}")
     print(f"  was_clamped: {result2['was_clamped']}")
     assert result2['was_clamped'], "Should be clamped"
-    assert not result2['gripper_open'], "Gripper should be closed (0.3 < 0.5)"
+    assert not result2['gripper_close'], "Gripper should be open (0.3 < 0.5)"
     
     # Case 3: Joint limit 근처에서 delta → position clamp
     adapter.set_current_state(
@@ -543,7 +544,7 @@ class DoosanRobotInterface:
         Returns: {'joint_positions': [6,], 'gripper': float}
         """
         # --- 현장 구현 ---
-        # ROS2: /dsr01e0509/joint_states topic subscribe
+        # ROS2: /joint_states topic subscribe
         # DRCF: get_current_posj() 호출
         
         # Placeholder (테스트용)
@@ -878,7 +879,7 @@ if __name__ == "__main__":
 
 ### 통신 테스트 (30분)
 - [ ] `ros2 launch dsr_bringup2 ... mode:=real model:=e0509` 실행
-- [ ] `/dsr01e0509/joint_states` topic 수신 확인
+- [ ] `/joint_states` topic 수신 확인
 - [ ] servoj 명령으로 1° 움직여보기
 - [ ] Emergency stop 작동 확인
 

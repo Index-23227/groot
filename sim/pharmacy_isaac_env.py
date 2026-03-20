@@ -249,9 +249,9 @@ class PharmacyIsaacEnv:
         target_joints = np.clip(target_joints, JOINT_LIMITS_LOWER, JOINT_LIMITS_UPPER)
         self._set_robot_joints(target_joints)
 
-        # Gripper
-        gripper_open = action[NUM_JOINTS] > 0.5
-        self._set_gripper(gripper_open)
+        # Gripper: grip > 0.5 = 닫힘 (close), grip ≤ 0.5 = 열림 (open)
+        gripper_close = action[NUM_JOINTS] > 0.5
+        self._set_gripper(not gripper_close)
 
         # 물리 시뮬레이션 진행 (120Hz / CONTROL_HZ = 12스텝)
         physics_steps = int(120.0 / CONTROL_HZ)
@@ -274,7 +274,8 @@ class PharmacyIsaacEnv:
         """현재 관측 반환"""
         image = self._camera.get_rgba()[:, :, :3]  # RGBA → RGB
         joints = self._get_robot_joints()
-        gripper = 1.0 if self._get_gripper_state() else 0.0
+        # grip convention: 0.0=열림, 1.0=닫힘 (_get_gripper_state는 True=open)
+        gripper = 0.0 if self._get_gripper_state() else 1.0
 
         return {
             "image": image,                                    # (H, W, 3) uint8

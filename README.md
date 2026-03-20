@@ -107,7 +107,7 @@ python -c "import cv2; cap = cv2.VideoCapture(0); print(cap.read()[0])"
 ros2 launch dsr_bringup2 dsr_bringup2.launch.py mode:=real model:=e0509 host:=192.168.127.100
 
 # joint_states 확인
-ros2 topic echo /dsr01e0509/joint_states
+ros2 topic echo /joint_states
 
 # doosan_recorder.py의 카메라/ROS2 topic 현장 맞춤 수정
 # 테스트 녹화 2~3회 → 데이터 shape 확인
