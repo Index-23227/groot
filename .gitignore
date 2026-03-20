@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+data/
+checkpoints/
+models/
+Isaac-GR00T/
+lerobot/
+*.egg-info/
+.venv/
+wandb/

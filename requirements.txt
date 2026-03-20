@@ -1,0 +1,19 @@
+# Core
+numpy>=1.24
+torch>=2.2.0
+torchvision>=0.17.0
+opencv-python>=4.8
+Pillow>=10.0
+requests>=2.31
+pyarrow>=14.0
+
+# Camera (uncomment as needed)
+# pyrealsense2
+
+# Plan C
+anthropic>=0.25
+
+# LeRobot + SmolVLA: pip install -e ".[smolvla]" in lerobot repo
+# GR00T: pip install -e .[base] in Isaac-GR00T repo
+# cuRobo: pip install curobo
+# ROS2: system-level install
