@@ -13,6 +13,10 @@ pyarrow>=14.0
 # Plan C
 anthropic>=0.25
 
+# Gemini Embodied Reasoning
+google-genai>=1.0
+openai>=1.0
+
 # LeRobot + SmolVLA: pip install -e ".[smolvla]" in lerobot repo
 # GR00T: pip install -e .[base] in Isaac-GR00T repo
 # cuRobo: pip install curobo

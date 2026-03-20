@@ -8,3 +8,6 @@ lerobot/
 *.egg-info/
 .venv/
 wandb/
+.env
+*.env
+results/

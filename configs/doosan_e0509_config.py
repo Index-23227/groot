@@ -16,7 +16,7 @@ CONTROLLER_IP = "192.168.127.100"
 CONTROLLER_PORT = 12345
 ROBOT_MODEL = "e0509"
 
-CAMERA_TYPE = "opencv"     # "opencv" / "realsense" / "ros2_topic"
+CAMERA_TYPE = "realsense"  # "opencv" / "realsense" / "ros2_topic"
 CAMERA_INDEX = 0
 CAMERA_TOPIC = "/camera/color/image_raw"
 CAMERA_WIDTH = 640
