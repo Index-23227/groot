@@ -15,31 +15,8 @@ out_dir.mkdir(parents=True, exist_ok=True)
 
 results = json.loads(json_path.read_text())
 
-# 라벨별 고정 색상
-LABEL_COLORS = {
-    "sprite_can": (0, 220, 80),
-    "soda_can":   (0, 220, 80),
-    "can":        (0, 220, 80),
-    "pepero_box": (255, 160, 0),
-    "snack_box":  (255, 160, 0),
-    "box":        (255, 160, 0),
-    "small_black_object": (150, 150, 255),
-    "small_object": (150, 150, 255),
-    "object":     (150, 150, 255),
-    "wristband":  (220, 100, 220),
-    "ring":       (220, 100, 220),
-    "ring_object":(220, 100, 220),
-    "black_ring": (220, 100, 220),
-    "small_orange_box": (255, 80, 80),
-}
-
-def get_color(label):
-    for key, color in LABEL_COLORS.items():
-        if key in label.lower():
-            return color
-    # 미등록 라벨은 해시 기반 색상
-    h = hash(label) % 0xFFFFFF
-    return ((h >> 16) & 0xFF, (h >> 8) & 0xFF, h & 0xFF)
+CAN_COLOR     = (0, 220, 80)   # 초록: 캔
+NOT_VIS_COLOR = (120, 120, 120)
 
 def draw_bbox(draw, bbox_norm, img_w, img_h, color, label, conf, font):
     cx, cy, bw, bh = bbox_norm
@@ -60,18 +37,19 @@ def draw_bbox(draw, bbox_norm, img_w, img_h, color, label, conf, font):
     draw.text((x1 + 3, ty), tag, fill=(0, 0, 0), font=font)
 
 try:
-    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16)
+    font    = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16)
     font_lg = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
 except Exception:
     font = ImageFont.load_default()
     font_lg = font
 
-print("객체 bbox 시각화 시작...")
+print("캔 bbox 시각화 시작...")
 
 for entry in results:
-    img_name = entry["image"]
-    objects  = entry.get("objects", [])
-    latency  = entry.get("latency_s", 0)
+    img_name    = entry["image"]
+    obj         = entry.get("object")
+    latency     = entry.get("latency_s", 0)
+    instruction = entry.get("instruction", "")
 
     path = img_dir / f"{img_name}.jpg"
     if not path.exists():
@@ -82,21 +60,25 @@ for entry in results:
     img_w, img_h = img.size
     draw = ImageDraw.Draw(img)
 
-    for obj in objects:
-        bbox  = obj.get("bbox_norm")
-        label = obj.get("label", "unknown")
-        conf  = obj.get("confidence", 0)
-        if bbox and len(bbox) == 4:
-            color = get_color(label)
-            draw_bbox(draw, bbox, img_w, img_h, color, label, conf, font)
+    visible = obj.get("visible", False) if obj else False
+    bbox    = obj.get("bbox_norm") if obj else None
+    conf    = obj.get("confidence", 0) if obj else 0
+    label   = obj.get("label", "sprite_can") if obj else "sprite_can"
+
+    if visible and bbox and any(v > 0 for v in bbox):
+        draw_bbox(draw, bbox, img_w, img_h, CAN_COLOR, label, conf, font)
 
     # 상단 패널
-    panel_h = 50
+    panel_h = 55
     panel = Image.new("RGB", (img_w, panel_h), (20, 20, 20))
     pdraw = ImageDraw.Draw(panel)
-    pdraw.text((10, 8),  f"{img_name.upper()}",         fill=(220, 220, 220), font=font_lg)
-    pdraw.text((110, 8), f"감지: {len(objects)}개 물체", fill=(80, 220, 80),  font=font_lg)
-    pdraw.text((img_w - 130, 8), f"latency: {latency}s", fill=(180, 180, 180), font=font)
+
+    status_color = (0, 220, 80) if visible else (200, 60, 60)
+    status_text  = "DETECTED" if visible else "NOT FOUND"
+    pdraw.text((10, 8),   img_name.upper(),  fill=(220, 220, 220), font=font_lg)
+    pdraw.text((110, 8),  status_text,        fill=status_color,    font=font_lg)
+    pdraw.text((10, 33),  f"지시: {instruction}", fill=(160, 160, 160), font=font)
+    pdraw.text((img_w - 120, 8), f"{latency}s", fill=(180, 180, 180), font=font_lg)
 
     combined = Image.new("RGB", (img_w, img_h + panel_h))
     combined.paste(panel, (0, 0))
@@ -104,6 +86,6 @@ for entry in results:
 
     out_path = out_dir / f"{img_name}_objects.jpg"
     combined.save(out_path, quality=92)
-    print(f"  {img_name}: {len(objects)}개 → {out_path.name}")
+    print(f"  {img_name}: {'✅' if visible else '❌'} conf={conf} → {out_path.name}")
 
 print(f"\n저장 완료: {out_dir}")

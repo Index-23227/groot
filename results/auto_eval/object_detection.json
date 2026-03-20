@@ -1,523 +1,155 @@
 [
   {
     "image": "base1",
-    "latency_s": 15.0,
-    "objects": [
-      {
-        "label": "sprite_can",
-        "confidence": 0.95,
-        "bbox_norm": [
-          0.45,
-          0.45,
-          0.1,
-          0.2
-        ],
-        "color": "green",
-        "notes": "A green soda can with white text."
-      },
-      {
-        "label": "pepero_box",
-        "confidence": 0.95,
-        "bbox_norm": [
-          0.57,
-          0.57,
-          0.15,
-          0.3
-        ],
-        "color": "green",
-        "notes": "A green rectangular box of Pepero snacks."
-      },
-      {
-        "label": "small_black_object",
-        "confidence": 0.9,
-        "bbox_norm": [
-          0.35,
-          0.45,
-          0.05,
-          0.1
-        ],
-        "color": "black",
-        "notes": "A small black oval-shaped object on the table."
-      },
-      {
-        "label": "wristband",
-        "confidence": 0.85,
-        "bbox_norm": [
-          0.3,
-          0.3,
-          0.05,
-          0.1
-        ],
-        "color": "black",
-        "notes": "A black wristband or bracelet."
-      },
-      {
-        "label": "small_orange_box",
-        "confidence": 0.8,
-        "bbox_norm": [
-          0.5,
-          0.1,
-          0.05,
-          0.1
-        ],
-        "color": "orange",
-        "notes": "A small orange box partially visible in the background."
-      }
-    ]
+    "latency_s": 9.5,
+    "instruction": "스프라이트 캔을 집어라",
+    "object": {
+      "label": "sprite_can",
+      "visible": true,
+      "confidence": 0.9,
+      "bbox_norm": [
+        0.45,
+        0.25,
+        0.1,
+        0.14
+      ],
+      "notes": "로봇 그리퍼 그리퍼 아래에 있는 초록색과 흰색의 칠성사이다 캔입니다."
+    }
   },
   {
     "image": "base2",
-    "latency_s": 15.3,
-    "objects": [
-      {
-        "label": "soda_can",
-        "confidence": 0.95,
-        "bbox_norm": [
-          0.453,
-          0.454,
-          0.098,
-          0.151
-        ],
-        "color": "green",
-        "notes": "An open green soda can."
-      },
-      {
-        "label": "snack_box",
-        "confidence": 0.95,
-        "bbox_norm": [
-          0.581,
-          0.581,
-          0.152,
-          0.252
-        ],
-        "color": "green",
-        "notes": "A green rectangular snack box."
-      },
-      {
-        "label": "small_object",
-        "confidence": 0.9,
-        "bbox_norm": [
-          0.354,
-          0.399,
-          0.079,
-          0.101
-        ],
-        "color": "black",
-        "notes": "A small black rounded object."
-      },
-      {
-        "label": "ring",
-        "confidence": 0.85,
-        "bbox_norm": [
-          0.321,
-          0.322,
-          0.077,
-          0.077
-        ],
-        "color": "black",
-        "notes": "A black ring-shaped object."
-      },
-      {
-        "label": "box",
-        "confidence": 0.8,
-        "bbox_norm": [
-          0.553,
-          0.103,
-          0.101,
-          0.052
-        ],
-        "color": "orange",
-        "notes": "A partially visible orange box in the background."
-      }
-    ]
+    "latency_s": 8.8,
+    "instruction": "스프라이트 캔을 집어라",
+    "object": {
+      "label": "sprite_can",
+      "visible": true,
+      "confidence": 0.9,
+      "bbox_norm": [
+        0.45,
+        0.35,
+        0.1,
+        0.2
+      ],
+      "notes": "테이블 위에 놓인 초록색 칠성사이다 캔"
+    }
   },
   {
     "image": "base3",
-    "latency_s": 13.4,
-    "objects": []
+    "latency_s": 10.2,
+    "instruction": "스프라이트 캔을 집어라",
+    "object": {
+      "label": "sprite_can",
+      "visible": true,
+      "confidence": 0.9,
+      "bbox_norm": [
+        0.42,
+        0.28,
+        0.1,
+        0.15
+      ],
+      "notes": "로봇 그리퍼트 그리퍼에 의해 부분적으로 가려진 흰색 원통형 캔"
+    }
   },
   {
     "image": "base4",
-    "latency_s": 13.3,
-    "objects": [
-      {
-        "label": "can",
-        "confidence": 0.95,
-        "bbox_norm": [
-          0.44,
-          0.43,
-          0.11,
-          0.21
-        ],
-        "color": "green",
-        "notes": "A green and white beverage can."
-      },
-      {
-        "label": "snack_box",
-        "confidence": 0.95,
-        "bbox_norm": [
-          0.57,
-          0.57,
-          0.16,
-          0.31
-        ],
-        "color": "green",
-        "notes": "A green rectangular snack box (Pepero)."
-      },
-      {
-        "label": "small_object",
-        "confidence": 0.9,
-        "bbox_norm": [
-          0.35,
-          0.45,
-          0.07,
-          0.14
-        ],
-        "color": "black",
-        "notes": "A small black oblong object."
-      },
-      {
-        "label": "ring_object",
-        "confidence": 0.85,
-        "bbox_norm": [
-          0.34,
-          0.3,
-          0.08,
-          0.08
-        ],
-        "color": "black",
-        "notes": "A black ring-shaped object."
-      },
-      {
-        "label": "snack_box",
-        "confidence": 0.8,
-        "bbox_norm": [
-          0.51,
-          0.12,
-          0.11,
-          0.08
-        ],
-        "color": "orange",
-        "notes": "A partially visible orange snack box in the background."
-      }
-    ]
+    "latency_s": 8.5,
+    "instruction": "스프라이트 캔을 집어라",
+    "object": {
+      "label": "sprite_can",
+      "visible": true,
+      "confidence": 0.95,
+      "bbox_norm": [
+        0.448,
+        0.448,
+        0.108,
+        0.181
+      ],
+      "notes": "녹색과 흰색의 음료수 료수 캔"
+    }
   },
   {
     "image": "base5",
     "latency_s": 11.1,
-    "objects": [
-      {
-        "label": "can",
-        "confidence": 0.95,
-        "bbox_norm": [
-          0.44,
-          0.44,
-          0.08,
-          0.15
-        ],
-        "color": "green",
-        "notes": "테이블 중앙에 놓인 초록색 캔입니다."
-      },
-      {
-        "label": "box",
-        "confidence": 0.95,
-        "bbox_norm": [
-          0.58,
-          0.58,
-          0.12,
-          0.25
-        ],
-        "color": "green",
-        "notes": "캔 오른쪽에 놓인 초록색 상자입니다."
-      },
-      {
-        "label": "small_object",
-        "confidence": 0.9,
-        "bbox_norm": [
-          0.34,
-          0.4,
-          0.06,
-          0.1
-        ],
-        "color": "black",
-        "notes": "캔 왼쪽에 놓인 검은색 타원형의 작은 물체입니다."
-      },
-      {
-        "label": "small_object",
-        "confidence": 0.85,
-        "bbox_norm": [
-          0.32,
-          0.31,
-          0.08,
-          0.08
-        ],
-        "color": "black",
-        "notes": "검은 검은색 링 모양의 물체입니다."
-      },
-      {
-        "label": "box",
-        "confidence": 0.8,
-        "bbox_norm": [
-          0.5,
-          0.08,
-          0.1,
-          0.05
-        ],
-        "color": "orange",
-        "notes": "테이블 상단 가장자리에 부분적으로 보이는 주황색 상자입니다."
-      }
-    ]
+    "instruction": "스프라이트 캔을 집어라",
+    "object": {
+      "label": "sprite_can",
+      "visible": true,
+      "confidence": 0.9,
+      "bbox_norm": [
+        0.44,
+        0.4,
+        0.1,
+        0.2
+      ],
+      "notes": "녹색과 흰색 라벨이 있는 음료수 료 음료 캔입니다."
+    }
   },
   {
     "image": "base6",
-    "latency_s": 12.3,
-    "objects": [
-      {
-        "label": "box",
-        "confidence": 0.95,
-        "bbox_norm": [
-          0.57,
-          0.5,
-          0.18,
-          0.28
-        ],
-        "color": "green",
-        "notes": "green snack box (Pepero)"
-      },
-      {
-        "label": "small object",
-        "confidence": 0.9,
-        "bbox_norm": [
-          0.34,
-          0.43,
-          0.06,
-          0.1
-        ],
-        "color": "black",
-        "notes": "small black rounded object"
-      },
-      {
-        "label": "small object",
-        "confidence": 0.85,
-        "bbox_norm": [
-          0.32,
-          0.31,
-          0.08,
-          0.06
-        ],
-        "color": "black",
-        "notes": "black ring-shaped object"
-      },
-      {
-        "label": "box",
-        "confidence": 0.7,
-        "bbox_norm": [
-          0.5,
-          0.1,
-          0.2,
-          0.08
-        ],
-        "color": "brown",
-        "notes": "partially visible brown box at the top edge"
-      }
-    ]
+    "latency_s": 6.9,
+    "instruction": "스프라이트 캔을 집어라",
+    "object": {
+      "label": "sprite_can",
+      "visible": false,
+      "confidence": 0.0,
+      "bbox_norm": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "notes": "이미지에 스프라이트 캔이 이미지에 없습니다."
+    }
   },
   {
     "image": "base7",
-    "latency_s": 17.1,
-    "objects": [
-      {
-        "label": "can",
-        "confidence": 0.95,
-        "bbox_norm": [
-          0.45,
-          0.4,
-          0.1,
-          0.2
-        ],
-        "color": "green",
-        "notes": "테이블 중앙에 놓인 녹색 음료수 캔입니다."
-      },
-      {
-        "label": "snack_box",
-        "confidence": 0.95,
-        "bbox_norm": [
-          0.57,
-          0.57,
-          0.2,
-          0.3
-        ],
-        "color": "green",
-        "notes": "테이블 위에 놓인 녹색 과자 상자입니다."
-      },
-      {
-        "label": "small_object",
-        "confidence": 0.85,
-        "bbox_norm": [
-          0.35,
-          0.45,
-          0.08,
-          0.1
-        ],
-        "color": "black",
-        "notes": "테이블 위에 놓인 검은색의 작은 물체입니다."
-      },
-      {
-        "label": "ring",
-        "confidence": 0.8,
-        "bbox_norm": [
-          0.35,
-          0.35,
-          0.08,
-          0.05
-        ],
-        "color": "black",
-        "notes": "테이블 위에 놓인 검은색 링 모양의 링입니다."
-      },
-      {
-        "label": "box",
-        "confidence": 0.7,
-        "bbox_norm": [
-          0.55,
-          0.1,
-          0.15,
-          0.05
-        ],
-        "color": "brown",
-        "notes": "테이블 상단에 부분적으로 보이는 갈색 상자입니다."
-      }
-    ]
+    "latency_s": 7.9,
+    "instruction": "스프라이트 캔을 집어라",
+    "object": {
+      "label": "sprite_can",
+      "visible": true,
+      "confidence": 0.95,
+      "bbox_norm": [
+        0.45,
+        0.215,
+        0.1,
+        0.13
+      ],
+      "notes": "테이블 위에 놓인 초록색 음료수 료수프라이트 캔"
+    }
   },
   {
     "image": "base8",
-    "latency_s": 18.3,
-    "objects": [
-      {
-        "label": "can",
-        "confidence": 0.95,
-        "bbox_norm": [
-          0.45,
-          0.45,
-          0.1,
-          0.2
-        ],
-        "color": "green",
-        "notes": "Green soda can."
-      },
-      {
-        "label": "box",
-        "confidence": 0.95,
-        "bbox_norm": [
-          0.55,
-          0.6,
-          0.2,
-          0.3
-        ],
-        "color": "green",
-        "notes": "Green snack box (Pepero)."
-      },
-      {
-        "label": "wristband",
-        "confidence": 0.9,
-        "bbox_norm": [
-          0.3,
-          0.35,
-          0.1,
-          0.1
-        ],
-        "color": "black",
-        "notes": "Black circular wristband or ring."
-      },
-      {
-        "label": "object",
-        "confidence": 0.85,
-        "bbox_norm": [
-          0.35,
-          0.5,
-          0.1,
-          0.1
-        ],
-        "color": "black",
-        "notes": "Small black rounded rectangular object."
-      },
-      {
-        "label": "box",
-        "confidence": 0.8,
-        "bbox_norm": [
-          0.5,
-          0.1,
-          0.15,
-          0.1
-        ],
-        "color": "brown",
-        "notes": "Small brown box in the background."
-      }
-    ]
+    "latency_s": 9.1,
+    "instruction": "스프라이트 캔을 집어라",
+    "object": {
+      "label": "sprite_can",
+      "visible": true,
+      "confidence": 0.95,
+      "bbox_norm": [
+        0.451,
+        0.451,
+        0.096,
+        0.151
+      ],
+      "notes": "녹색의 원통형 음료수 료 캔이 위로 솟은 원통형 캔"
+    }
   },
   {
     "image": "base9",
-    "latency_s": 24.4,
-    "objects": [
-      {
-        "label": "can",
-        "confidence": 0.95,
-        "bbox_norm": [
-          0.44,
-          0.44,
-          0.08,
-          0.18
-        ],
-        "color": "green",
-        "notes": "Green beverage can."
-      },
-      {
-        "label": "box",
-        "confidence": 0.95,
-        "bbox_norm": [
-          0.57,
-          0.57,
-          0.15,
-          0.25
-        ],
-        "color": "green",
-        "notes": "Green snack box (Pepero)."
-      },
-      {
-        "label": "small_object",
-        "confidence": 0.9,
-        "bbox_norm": [
-          0.33,
-          0.31,
-          0.05,
-          0.05
-        ],
-        "color": "black",
-        "notes": "Black circular object, possibly a wristband."
-      },
-      {
-        "label": "small_object",
-        "confidence": 0.9,
-        "bbox_norm": [
-          0.35,
-          0.4,
-          0.05,
-          0.08
-        ],
-        "color": "black",
-        "notes": "Black oval-shaped object."
-      },
-      {
-        "label": "box",
-        "confidence": 0.8,
-        "bbox_norm": [
-          0.5,
-          0.1,
-          0.05,
-          0.05
-        ],
-        "color": "orange",
-        "notes": "Small orange box in the background."
-      }
-    ]
+    "latency_s": 6.7,
+    "instruction": "스프라이트 캔을 집어라",
+    "object": {
+      "label": "sprite_can",
+      "visible": true,
+      "confidence": 0.95,
+      "bbox_norm": [
+        0.45,
+        0.25,
+        0.1,
+        0.2
+      ],
+      "notes": "녹색 원통형 캔이 로봇 그리퍼 그리퍼에 잡혀있습니다."
+    }
   }
 ]
