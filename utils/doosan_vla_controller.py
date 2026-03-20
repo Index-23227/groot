@@ -107,6 +107,8 @@ class DoosanRobot:
 
 def main(args):
     from utils.doosan_recorder import CameraCapture
+    from utils.failure_detector import FailureDetector
+
     vla = VLAClient(args.vla_url)
     robot = DoosanRobot()
     adapter = DoosanActionAdapter()
@@ -116,9 +118,21 @@ def main(args):
         overlap=args.overlap,
         decay=args.decay,
     )
+    detector = FailureDetector()
     dt = 1.0 / args.hz
 
-    print(f"\n=== Deploy: {args.instruction} @ {args.hz}Hz ===")
+    # --- Level 2: STT instruction ---
+    instruction = args.instruction
+    if args.stt:
+        from utils.stt_instruction import STTInstruction
+        stt = STTInstruction(use_llm=args.stt_llm)
+        heard = stt.listen(duration=args.stt_duration)
+        if heard:
+            instruction = heard
+        else:
+            print("[STT] 인식 실패, 기본 instruction 사용")
+
+    print(f"\n=== Deploy: {instruction} @ {args.hz}Hz ===")
     print(f"    chunk: execute_horizon={args.execute_horizon}, overlap={args.overlap}, decay={args.decay}\n")
 
     step = 0
@@ -127,7 +141,7 @@ def main(args):
         joints, grip = robot.get_state()
         adapter.set_current_state(joints, grip)
         img = camera.read()
-        chunk = vla.predict(img, np.concatenate([joints, [grip]]), args.instruction)
+        chunk = vla.predict(img, np.concatenate([joints, [grip]]), instruction)
         if chunk is None:
             continue
         if chunk.ndim == 1:
@@ -145,6 +159,22 @@ def main(args):
             adapter.set_current_state(joints, grip)
             cmd = adapter.convert(act, dt)
             robot.send(cmd["joint_targets"], cmd["gripper_open"], dt)
+
+            # --- Level 4: 실패 감지 ---
+            status = detector.update(cmd["joint_targets"], cmd["clamp_ratio"])
+            if status["should_fallback"]:
+                print(f"\n⚠️  [step {step}] 반복 실패 — classical fallback 전환")
+                camera.release()
+                from utils.plan_c_classical import main as classical_main
+                classical_main(argparse.Namespace(
+                    instruction=instruction, test_vision=False))
+                return
+            if status["should_retry"]:
+                reason = "stall" if status["stalled"] else "over-clamp"
+                print(f"\n🔄 [step {step}] {reason} 감지 — 재시도 #{detector.retry_count}")
+                blender.reset()
+                break  # 현재 chunk 중단, 새 inference부터 재시작
+
             elapsed = time.time() - t0
             if dt - elapsed > 0:
                 time.sleep(dt - elapsed)
@@ -163,4 +193,8 @@ if __name__ == "__main__":
     p.add_argument("--execute-horizon", type=int, default=4)
     p.add_argument("--overlap", type=int, default=4)
     p.add_argument("--decay", type=float, default=0.7)
+    # Level 2: STT
+    p.add_argument("--stt", action="store_true", help="음성으로 instruction 입력")
+    p.add_argument("--stt-llm", action="store_true", help="LLM으로 instruction 정제")
+    p.add_argument("--stt-duration", type=float, default=5)
     main(p.parse_args())
