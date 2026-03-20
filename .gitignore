@@ -14,3 +14,4 @@ camera_test_*.npy
 gemini_test.jpg
 test_pointing.jpg
 *.tar.gz
+track2/icl_examples/
