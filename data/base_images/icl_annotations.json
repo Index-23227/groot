@@ -1,0 +1,110 @@
+[
+  {
+    "image": "base1",
+    "instruction": "스프라이트 캔을 집어라",
+    "graspable_gt": true,
+    "actual_outcome": "success",
+    "can_bbox_norm": [0.44, 0.44, 0.08, 0.15],
+    "gripper_bbox_norm": [0.44, 0.38, 0.15, 0.15],
+    "horizontal_error": 0.0,
+    "failure_reason": null,
+    "correction_mm": null,
+    "notes": "그리퍼 중심(0.44)과 캔 중심(0.44) X 일치, 완벽한 정렬"
+  },
+  {
+    "image": "base2",
+    "instruction": "스프라이트 캔을 집어라",
+    "graspable_gt": false,
+    "actual_outcome": "fail",
+    "can_bbox_norm": [0.45, 0.45, 0.10, 0.20],
+    "gripper_bbox_norm": [0.40, 0.15, 0.20, 0.10],
+    "horizontal_error": 0.05,
+    "failure_reason": "그리퍼가 캔에서 멀리 떨어져 있음 — 수직 거리 과대",
+    "correction_mm": {"x": 0, "y": -30, "z": 0},
+    "notes": "그리퍼 Y값(0.15)이 캔 Y값(0.45)에서 크게 떨어져 있음 — 명확한 불가"
+  },
+  {
+    "image": "base3",
+    "instruction": "스프라이트 캔을 집어라",
+    "graspable_gt": false,
+    "actual_outcome": "fail",
+    "can_bbox_norm": [0.40, 0.35, 0.10, 0.15],
+    "gripper_bbox_norm": [0.40, 0.22, 0.20, 0.15],
+    "horizontal_error": 0.0,
+    "failure_reason": "X축 정렬은 맞지만 수직 거리(Y차이 0.13)가 너무 커서 그리퍼가 캔 높이까지 충분히 내려오지 못함",
+    "correction_mm": {"x": 0, "y": 0, "z": -40},
+    "notes": "FP 케이스: 이미지상 정렬된 것처럼 보이나 Z 높이 부족으로 실제 파지 실패"
+  },
+  {
+    "image": "base4",
+    "instruction": "스프라이트 캔을 집어라",
+    "graspable_gt": true,
+    "actual_outcome": "success",
+    "can_bbox_norm": [0.44, 0.44, 0.06, 0.15],
+    "gripper_bbox_norm": [0.46, 0.39, 0.12, 0.15],
+    "horizontal_error": 0.02,
+    "failure_reason": null,
+    "correction_mm": null,
+    "notes": "X 오프셋 2% — 허용 범위 내, 그리퍼 폭이 충분히 커서 캔을 잡을 수 있음"
+  },
+  {
+    "image": "base5",
+    "instruction": "스프라이트 캔을 집어라",
+    "graspable_gt": false,
+    "actual_outcome": "fail",
+    "can_bbox_norm": [0.42, 0.42, 0.08, 0.15],
+    "gripper_bbox_norm": [0.40, 0.20, 0.15, 0.15],
+    "horizontal_error": 0.02,
+    "failure_reason": "수직 거리(Y차이 0.22)가 매우 커서 그리퍼가 캔에 도달하지 못함",
+    "correction_mm": {"x": 0, "y": 0, "z": -60},
+    "notes": "그리퍼가 캔보다 훨씬 높은 위치 — 명확한 불가"
+  },
+  {
+    "image": "base6",
+    "instruction": "스프라이트 캔을 집어라",
+    "graspable_gt": false,
+    "actual_outcome": "fail",
+    "can_bbox_norm": [0.55, 0.45, 0.20, 0.30],
+    "gripper_bbox_norm": [0.40, 0.20, 0.15, 0.15],
+    "horizontal_error": 0.15,
+    "failure_reason": "씬에 캔 없음 — 빼빼로 상자가 캔으로 오감지되었고, 그리퍼와 수평 오프셋 15% 존재",
+    "correction_mm": null,
+    "notes": "오감지 TN: 결론은 맞지만 이유가 틀림 — 실제 씬에 스프라이트 캔 자체가 없었음"
+  },
+  {
+    "image": "base7",
+    "instruction": "스프라이트 캔을 집어라",
+    "graspable_gt": true,
+    "actual_outcome": "success",
+    "can_bbox_norm": [0.44, 0.44, 0.08, 0.20],
+    "gripper_bbox_norm": [0.45, 0.39, 0.15, 0.15],
+    "horizontal_error": 0.01,
+    "failure_reason": null,
+    "correction_mm": null,
+    "notes": "X 오프셋 1%, Y 차이 0.05 — 이상적인 파지 위치"
+  },
+  {
+    "image": "base8",
+    "instruction": "스프라이트 캔을 집어라",
+    "graspable_gt": false,
+    "actual_outcome": "fail",
+    "can_bbox_norm": [0.44, 0.45, 0.08, 0.18],
+    "gripper_bbox_norm": [0.42, 0.35, 0.20, 0.15],
+    "horizontal_error": 0.02,
+    "failure_reason": "이미지상 정렬된 것처럼 보이지만 실제 그리퍼 접근 각도가 틀어져 있어 파지 실패",
+    "correction_mm": {"x": 10, "y": 0, "z": -15},
+    "notes": "FP 케이스: bbox 중심 차이 X=0.02로 작지만 실제 물리적 접근 각도 오차로 실패"
+  },
+  {
+    "image": "base9",
+    "instruction": "스프라이트 캔을 집어라",
+    "graspable_gt": false,
+    "actual_outcome": "fail",
+    "can_bbox_norm": [0.45, 0.45, 0.10, 0.20],
+    "gripper_bbox_norm": [0.45, 0.35, 0.15, 0.15],
+    "horizontal_error": 0.0,
+    "failure_reason": "X 정렬은 완벽하나 그리퍼가 캔 상단에 걸려 완전한 파지 깊이에 도달하지 못함",
+    "correction_mm": {"x": 0, "y": 0, "z": -20},
+    "notes": "FP 케이스: 수평 정렬 완벽해 보이지만 Z 깊이 부족으로 실제 파지 실패"
+  }
+]

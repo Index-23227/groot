@@ -1,0 +1,206 @@
+{
+  "icl_images": [
+    "base1",
+    "base2",
+    "base3",
+    "base8"
+  ],
+  "test_images": [
+    "base4",
+    "base5",
+    "base6",
+    "base7",
+    "base9"
+  ],
+  "icl_results": [
+    {
+      "can_visible": true,
+      "gripper_visible": true,
+      "graspable": true,
+      "confidence": 0.85,
+      "gripper_position": "캔 위",
+      "alignment": "정렬됨",
+      "can_bbox_norm": [
+        0.45,
+        0.45,
+        0.08,
+        0.15
+      ],
+      "gripper_bbox_norm": [
+        0.45,
+        0.38,
+        0.15,
+        0.15
+      ],
+      "horizontal_error_pct": 0.0,
+      "reason": "그리퍼 중심과 캔 중심의 X축이 완벽하게 정렬되었으며, 수직 거리(Y차이 0.07)도 파지 가능한 범위(≤ 0.10) 내에 있음.",
+      "image": "base4",
+      "latency_s": 21.2,
+      "gt": true
+    },
+    {
+      "can_visible": true,
+      "gripper_visible": true,
+      "graspable": false,
+      "confidence": 0.85,
+      "gripper_position": "멀리",
+      "alignment": "많이 틀어짐",
+      "can_bbox_norm": [
+        0.45,
+        0.45,
+        0.1,
+        0.2
+      ],
+      "gripper_bbox_norm": [
+        0.35,
+        0.2,
+        0.2,
+        0.15
+      ],
+      "horizontal_error_pct": 0.1,
+      "reason": "그리퍼 중심(0.35)이 캔 중심(0.45)에서 10% 벗어나 정렬 기준(5%)을 초과하며, 수직 거리(Y차이 0.25)도 파지 가능 기준(0.10)을 초과함.",
+      "image": "base5",
+      "latency_s": 16.5,
+      "gt": false
+    },
+    {
+      "can_visible": true,
+      "gripper_visible": true,
+      "graspable": false,
+      "confidence": 0.85,
+      "gripper_position": "캔 위",
+      "alignment": "약간 틀어짐",
+      "can_bbox_norm": [
+        0.4,
+        0.4,
+        0.1,
+        0.2
+      ],
+      "gripper_bbox_norm": [
+        0.35,
+        0.25,
+        0.2,
+        0.15
+      ],
+      "horizontal_error_pct": 0.05,
+      "reason": "그리퍼 중심 X축 오프셋이 5%로 borderline이며, 수직 거리(Y차이 0.15)가 0.10을 초과하여 파지 실패 예상. (예시 base3과 유사)",
+      "image": "base6",
+      "latency_s": 20.1,
+      "gt": false
+    },
+    {
+      "can_visible": true,
+      "gripper_visible": true,
+      "graspable": true,
+      "confidence": 0.85,
+      "gripper_position": "캔 위",
+      "alignment": "정렬됨",
+      "can_bbox_norm": [
+        0.44,
+        0.44,
+        0.08,
+        0.15
+      ],
+      "gripper_bbox_norm": [
+        0.44,
+        0.38,
+        0.15,
+        0.15
+      ],
+      "horizontal_error_pct": 0.0,
+      "reason": "그리퍼 중심과 캔 중심의 X축이 일치하며, 그리퍼가 캔 바로 위에 위치하여 파지 가능.",
+      "image": "base7",
+      "latency_s": 19.3,
+      "gt": true
+    },
+    {
+      "can_visible": true,
+      "gripper_visible": true,
+      "graspable": true,
+      "confidence": 0.85,
+      "gripper_position": "캔 위",
+      "alignment": "정렬됨",
+      "can_bbox_norm": [
+        0.44,
+        0.44,
+        0.08,
+        0.15
+      ],
+      "gripper_bbox_norm": [
+        0.44,
+        0.38,
+        0.15,
+        0.15
+      ],
+      "horizontal_error_pct": 0.0,
+      "reason": "그리퍼 중심과 캔 중심의 X축이 완벽하게 정렬되었고, Y축 거리도 파지 가능한 범위 내에 있음.",
+      "image": "base9",
+      "latency_s": 17.2,
+      "gt": false
+    }
+  ],
+  "icl_annotated": [
+    {
+      "image": "base1",
+      "graspable": true,
+      "gt": true,
+      "confidence": 0.9,
+      "latency_s": 0.0,
+      "note": "ICL example (not queried)"
+    },
+    {
+      "image": "base2",
+      "graspable": false,
+      "gt": false,
+      "confidence": 0.9,
+      "latency_s": 0.0,
+      "note": "ICL example (not queried)"
+    },
+    {
+      "image": "base3",
+      "graspable": false,
+      "gt": false,
+      "confidence": 0.9,
+      "latency_s": 0.0,
+      "note": "ICL example (not queried)"
+    },
+    {
+      "image": "base8",
+      "graspable": false,
+      "gt": false,
+      "confidence": 0.9,
+      "latency_s": 0.0,
+      "note": "ICL example (not queried)"
+    }
+  ],
+  "metrics_icl_eval": {
+    "TP": 2,
+    "TN": 2,
+    "FP": 1,
+    "FN": 0,
+    "precision": 0.6666666666666666,
+    "recall": 1.0,
+    "accuracy": 0.8,
+    "f1": 0.8
+  },
+  "metrics_icl_all": {
+    "TP": 3,
+    "TN": 5,
+    "FP": 1,
+    "FN": 0,
+    "precision": 0.75,
+    "recall": 1.0,
+    "accuracy": 0.8888888888888888,
+    "f1": 0.8571428571428571
+  },
+  "metrics_baseline": {
+    "TP": 3,
+    "TN": 3,
+    "FP": 3,
+    "FN": 0,
+    "precision": 0.5,
+    "recall": 1.0,
+    "accuracy": 0.6666666666666666,
+    "f1": 0.6666666666666666
+  }
+}
