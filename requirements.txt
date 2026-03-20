@@ -10,10 +10,16 @@ pyarrow>=14.0
 # Camera (uncomment as needed)
 # pyrealsense2
 
-# Plan C
+# Plan C (Claude Vision)
 anthropic>=0.25
+
+# Track 2 (Gemini-ER + cuRobo)
+google-generativeai>=0.8.0
+scipy>=1.10.0
+ikpy>=3.3.0
 
 # LeRobot + SmolVLA: pip install -e ".[smolvla]" in lerobot repo
 # GR00T: pip install -e .[base] in Isaac-GR00T repo
-# cuRobo: pip install curobo
+# cuRobo: pip install curobo (별도 설치)
+# pyrealsense2: pip install pyrealsense2 (Intel RealSense 사용 시)
 # ROS2: system-level install

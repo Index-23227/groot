@@ -14,9 +14,10 @@
 A안:     GR00T N1.6 (3B)     GPU 4장   → 메인 VLA
 Plan B:  SmolVLA (450M)      GPU 1장   → 백업 VLA (먼저 결과 나옴 → baseline)
 Plan C:  Claude Vision+cuRobo GPU 0장   → VLA 전부 실패 시 최후의 보루
+Track 2: Gemini-ER+cuRobo    GPU 0장   → Zero-shot (학습 불필요, VLA 대기 중 즉시 실행)
 ```
 
-전부 AI 사용: GR00T(VLA) / SmolVLA(VLA) / Claude Vision(LLM)
+전부 AI 사용: GR00T(VLA) / SmolVLA(VLA) / Gemini-ER(Reasoning) / Claude Vision(LLM)
 
 ---
 
@@ -36,13 +37,22 @@ hackathon-doosan-vla/
 │   ├── 03_convert_data.sh             P3: 데이터 변환
 │   ├── 04_train_groot.sh              P2: GR00T 학습
 │   ├── 04_train_smolvla.sh            P3: SmolVLA 학습
-│   └── 05_deploy.sh                   배포 (groot / smolvla / planc)
+│   └── 05_deploy.sh                   배포 (groot / smolvla / planc / track2)
 ├── utils/
 │   ├── doosan_recorder.py             ⭐ 데모 녹화 (Direct Teaching + 카메라)
 │   ├── convert_to_lerobot.py          ⭐ Raw → GR00T LeRobot v2 변환
 │   ├── doosan_action_adapter.py       ⭐ VLA → 로봇 (safety clamp)
 │   ├── doosan_vla_controller.py       배포: inference server ↔ 로봇
 │   └── plan_c_classical.py            Plan C: Claude Vision + cuRobo
+├── track2/                            ⭐ Track 2: Gemini-ER + cuRobo (Zero-shot)
+│   ├── TRACK2_GUIDE.md                상세 가이드 (아키텍처~트러블슈팅)
+│   ├── track2_main.py                 ⭐ 메인 파이프라인 (pick & place + retry)
+│   ├── gemini_er_client.py            Gemini-ER API (pointing, 분해, 진행확인)
+│   ├── ik_solver.py                   IK solver (cuRobo / ikpy fallback)
+│   ├── calibration.py                 4점 extrinsic calibration
+│   ├── dual_brain.py                  Dual-Brain: Gemini-ER planner + VLA executor
+│   ├── camera_test.py                 카메라 RGB+Depth 테스트
+│   └── requirements.txt               Track 2 전용 의존성
 └── tests/
     └── test_adapter.py                단위 테스트 (로봇 없이 실행)
 ```
@@ -113,14 +123,30 @@ ros2 topic echo /joint_states
 # 테스트 녹화 2~3회 → 데이터 shape 확인
 ```
 
-### P5 — Plan C (Claude + cuRobo) 구현 시작
+### P5 — Track 2 (Gemini-ER + cuRobo) 셋업 (~1시간)
 
 ```bash
-# Claude Vision API 테스트
-python utils/plan_c_classical.py --test-vision
+# 1. 의존성 설치
+pip install -r track2/requirements.txt
 
-# cuRobo 설치 + URDF 로드 + IK 테스트
+# 2. Gemini API 키 설정
+export GEMINI_API_KEY="your-key-here"
+
+# 3. 카메라 테스트
+python track2/camera_test.py
+
+# 4. 캘리브레이션 (4점 수동 매핑, ~10분)
+python track2/calibration.py
+
+# 5. IK solver 확인 (cuRobo or ikpy)
+python track2/ik_solver.py
+
+# 6. Gemini pointing 테스트
+GEMINI_API_KEY=your-key python track2/track2_main.py --test-pointing
 ```
+
+> **Track 2는 VLA 학습 대기 중 즉시 실물 테스트 가능!**
+> 상세 가이드: `track2/TRACK2_GUIDE.md`
 
 ---
 
@@ -209,7 +235,7 @@ P1이 GR00T vs SmolVLA open-loop 결과 비교 → 메인 모델 결정
 시나리오 A: GR00T 승     → GR00T 배포, SmolVLA는 비교 대상
 시나리오 B: SmolVLA 승   → SmolVLA 배포, GR00T 재학습
 시나리오 C: 둘 다 OK     → 둘 다 배포 → "VLA 비교" 발표 (가장 강력)
-시나리오 D: 둘 다 실패   → Plan C 즉시 투입
+시나리오 D: 둘 다 실패   → Track 2 (Gemini-ER) 즉시 투입
 ```
 
 ---
@@ -223,8 +249,11 @@ bash scripts/05_deploy.sh groot
 # SmolVLA 배포
 bash scripts/05_deploy.sh smolvla
 
-# Plan C 배포
+# Plan C 배포 (Claude Vision)
 bash scripts/05_deploy.sh planc
+
+# Track 2 배포 (Gemini-ER + cuRobo, Zero-shot)
+bash scripts/05_deploy.sh track2
 ```
 
 **예상 문제 + 해결:**

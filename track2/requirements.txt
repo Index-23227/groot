@@ -1,0 +1,8 @@
+google-generativeai>=0.8.0
+opencv-python-headless>=4.8.0
+numpy>=1.24.0
+scipy>=1.10.0
+Pillow>=9.0.0
+ikpy>=3.3.0
+# curobo  # 별도 설치: pip install curobo
+# pyrealsense2  # Intel RealSense: pip install pyrealsense2

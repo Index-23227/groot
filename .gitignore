@@ -8,3 +8,9 @@ lerobot/
 *.egg-info/
 .venv/
 wandb/
+T_cam2base.npy
+camera_test_*.jpg
+camera_test_*.npy
+gemini_test.jpg
+test_pointing.jpg
+*.tar.gz
