@@ -1,9 +1,12 @@
 # Task Roadmap — 단계별 완성도 업그레이드
 
-> **Task**: 물체를 집어서 지정 위치에 놓기 (Pick & Place)
+> **Task**: 약국 조제 보조 — 약품을 음성 명령으로 조제함에 배치
 > **Robot**: Doosan E0509 (6-DOF + Gripper)
 > **Camera**: Global view 1대 (wrist cam 없음)
 > **핵심 원칙**: 데모는 한 번만 수집. 시스템 완성도를 소프트웨어로 올린다.
+>
+> 상세 시나리오: [PHARMACY_SCENARIO.md](PHARMACY_SCENARIO.md)
+> 물리 세팅: [PHYSICAL_SETUP_GUIDE.md](PHYSICAL_SETUP_GUIDE.md)
 
 ---
 
