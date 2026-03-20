@@ -1,0 +1,209 @@
+[
+  {
+    "can_visible": true,
+    "gripper_visible": true,
+    "graspable": true,
+    "confidence": 0.9,
+    "gripper_position": "캔 위",
+    "alignment": "정렬됨",
+    "can_bbox_norm": [
+      0.44,
+      0.44,
+      0.08,
+      0.15
+    ],
+    "gripper_bbox_norm": [
+      0.44,
+      0.38,
+      0.15,
+      0.15
+    ],
+    "reason": "로봇 그리퍼가 스프라이트 캔 바로 위에 정렬되어 있어 잡을 수직으로 내려오면 캔을 잡을 수월하게 잡을 수 있는 위치입니다.",
+    "image": "base1",
+    "latency_s": 10.1
+  },
+  {
+    "can_visible": true,
+    "gripper_visible": true,
+    "graspable": false,
+    "confidence": 0.9,
+    "gripper_position": "멀리",
+    "alignment": "많이 틀어짐",
+    "can_bbox_norm": [
+      0.45,
+      0.45,
+      0.1,
+      0.2
+    ],
+    "gripper_bbox_norm": [
+      0.4,
+      0.15,
+      0.2,
+      0.1
+    ],
+    "reason": "그리퍼가 캔 바로 위에 있지 않고, 캔에서 멀리 떨어져 있어 현재 위치에서는 캔을 잡을 수 없습니다.",
+    "image": "base2",
+    "latency_s": 12.9
+  },
+  {
+    "can_visible": true,
+    "gripper_visible": true,
+    "graspable": true,
+    "confidence": 0.85,
+    "gripper_position": "캔 위",
+    "alignment": "정렬됨",
+    "can_bbox_norm": [
+      0.4,
+      0.35,
+      0.1,
+      0.15
+    ],
+    "gripper_bbox_norm": [
+      0.4,
+      0.22,
+      0.2,
+      0.15
+    ],
+    "reason": "그리퍼가 스프라이트 캔 바로 위에 위치하며, 캔을 집을 수직으로 내려와 잡을 수 있도록 정렬되어 있습니다.",
+    "image": "base3",
+    "latency_s": 9.8
+  },
+  {
+    "can_visible": true,
+    "gripper_visible": true,
+    "graspable": true,
+    "confidence": 0.9,
+    "gripper_position": "캔 위",
+    "alignment": "정렬됨",
+    "can_bbox_norm": [
+      0.44,
+      0.44,
+      0.06,
+      0.15
+    ],
+    "gripper_bbox_norm": [
+      0.46,
+      0.39,
+      0.12,
+      0.15
+    ],
+    "reason": "그리퍼가 캔 바로 위에 위치하며, 캔을 집을 수 있도록 정렬되어 있습니다.",
+    "image": "base4",
+    "latency_s": 8.9
+  },
+  {
+    "can_visible": true,
+    "gripper_visible": true,
+    "graspable": false,
+    "confidence": 0.9,
+    "gripper_position": "캔 위",
+    "alignment": "많이 틀어짐",
+    "can_bbox_norm": [
+      0.42,
+      0.42,
+      0.08,
+      0.15
+    ],
+    "gripper_bbox_norm": [
+      0.4,
+      0.2,
+      0.15,
+      0.15
+    ],
+    "reason": "그리퍼가 캔의 중심에서 벗어나 있어 현재 위치에서 바로 잡을 수 없습니다.",
+    "image": "base5",
+    "latency_s": 11.7
+  },
+  {
+    "can_visible": true,
+    "gripper_visible": true,
+    "graspable": false,
+    "confidence": 0.9,
+    "gripper_position": "캔 위",
+    "alignment": "약간 틀어짐",
+    "can_bbox_norm": [
+      0.55,
+      0.45,
+      0.2,
+      0.3
+    ],
+    "gripper_bbox_norm": [
+      0.4,
+      0.2,
+      0.15,
+      0.15
+    ],
+    "reason": "그리퍼가 캔(페페로 상자) 위에 있지만, 수평 정렬이 약간 틀어져 있어 바로 잡기 어렵습니다.",
+    "image": "base6",
+    "latency_s": 18.3
+  },
+  {
+    "can_visible": true,
+    "gripper_visible": true,
+    "graspable": true,
+    "confidence": 0.85,
+    "gripper_position": "캔 위",
+    "alignment": "정렬됨",
+    "can_bbox_norm": [
+      0.44,
+      0.44,
+      0.08,
+      0.2
+    ],
+    "gripper_bbox_norm": [
+      0.45,
+      0.39,
+      0.15,
+      0.15
+    ],
+    "reason": "그리퍼가 캔 바로 위에 위치하며, 캔을 잡을 수 있도록 정렬되어 있습니다.",
+    "image": "base7",
+    "latency_s": 11.2
+  },
+  {
+    "can_visible": true,
+    "gripper_visible": true,
+    "graspable": true,
+    "confidence": 0.9,
+    "gripper_position": "캔 위",
+    "alignment": "정렬됨",
+    "can_bbox_norm": [
+      0.44,
+      0.45,
+      0.08,
+      0.18
+    ],
+    "gripper_bbox_norm": [
+      0.42,
+      0.35,
+      0.2,
+      0.15
+    ],
+    "reason": "로봇 그리퍼가 스프라이트 캔 바로 위에 위치하며, 캔을 잡기 위해 잘 정렬되어 있습니다.",
+    "image": "base8",
+    "latency_s": 10.3
+  },
+  {
+    "can_visible": true,
+    "gripper_visible": true,
+    "graspable": true,
+    "confidence": 0.9,
+    "gripper_position": "캔 위",
+    "alignment": "정렬됨",
+    "can_bbox_norm": [
+      0.45,
+      0.45,
+      0.1,
+      0.2
+    ],
+    "gripper_bbox_norm": [
+      0.45,
+      0.35,
+      0.15,
+      0.15
+    ],
+    "reason": "로봇 그리퍼가 스프라이트 캔 바로 위에 정렬되어 있어 잡을 수직으로 내려오면 캔을 잡을 수월하게 잡을 수집할 수 있습니다.",
+    "image": "base9",
+    "latency_s": 11.5
+  }
+]
