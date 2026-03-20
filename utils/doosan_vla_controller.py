@@ -75,32 +75,98 @@ class VLAClient:
 
 
 class DoosanRobot:
+    """실제 두산 E0509 + ROBOTIS RH-P12-RN-A 제어.
+
+    /joint_states에서 arm 6 + gripper 상태를 읽고,
+    MoveJoint 서비스(degree)와 gripper 서비스로 제어.
+    """
+
     def __init__(self):
         self.connected = False
         self.latest_joints = np.zeros(NUM_JOINTS)
+        self.latest_gripper = 0.0  # 0.0=열림, 1.0=닫힘
+        self._grip_pub = None
+        self._grip_open_client = None
+        self._grip_close_client = None
         try:
             import rclpy
             from sensor_msgs.msg import JointState
             try: rclpy.init()
             except RuntimeError: pass
             self.node = rclpy.create_node("vla_controller")
-            self.node.create_subscription(JointState,
-                f"/dsr01{ROBOT_MODEL}/joint_states", self._cb, 10)
+
+            # Joint states 구독 (arm 6 + gripper 4)
+            self.node.create_subscription(
+                JointState, JOINT_STATE_TOPIC, self._joint_cb, 10)
+
+            # Gripper stroke 구독
+            try:
+                from std_msgs.msg import Int32
+                self.node.create_subscription(
+                    Int32, GRIPPER_STROKE_TOPIC, self._stroke_cb, 10)
+                # Gripper stroke 연속 제어용 publisher
+                self._grip_pub = self.node.create_publisher(
+                    Int32, GRIPPER_POSITION_TOPIC, 10)
+            except Exception:
+                pass
+
+            # Gripper open/close 서비스 클라이언트
+            try:
+                from std_srvs.srv import Trigger
+                self._grip_open_client = self.node.create_client(
+                    Trigger, GRIPPER_OPEN_SERVICE)
+                self._grip_close_client = self.node.create_client(
+                    Trigger, GRIPPER_CLOSE_SERVICE)
+            except Exception:
+                pass
+
             self.connected = True
+            print(f"[Robot] ROS2 connected: {JOINT_STATE_TOPIC}")
         except ImportError:
             print("[Robot] MOCK mode")
 
-    def _cb(self, msg):
+    def _joint_cb(self, msg):
         self.latest_joints = np.array(msg.position[:NUM_JOINTS])
+        if len(msg.position) > NUM_JOINTS:
+            self.latest_gripper = float(msg.position[NUM_JOINTS])
+
+    def _stroke_cb(self, msg):
+        self.latest_gripper = stroke_to_grip(msg.data)
 
     def get_state(self):
         if self.connected:
             import rclpy
             rclpy.spin_once(self.node, timeout_sec=0.01)
-        return self.latest_joints.copy(), 0.0
+        return self.latest_joints.copy(), self.latest_gripper
 
-    def send(self, joints, gripper_open, dt=0.1):
-        deg = np.rad2deg(joints).tolist()
+    def send(self, cmd, dt=0.1):
+        """adapter.convert() 결과를 받아 로봇에 명령 전송.
+
+        Args:
+            cmd: adapter.convert()의 반환값 dict
+        """
+        deg = cmd["joint_targets_deg"].tolist()
+        grip_close = cmd["gripper_close"]
+        stroke = cmd["gripper_stroke"]
+
+        if self.connected:
+            # Gripper 제어: 연속(stroke) 또는 이진(open/close)
+            if self._grip_pub is not None:
+                from std_msgs.msg import Int32
+                self._grip_pub.publish(Int32(data=stroke))
+            elif grip_close and self._grip_close_client:
+                from std_srvs.srv import Trigger
+                self._grip_close_client.call_async(Trigger.Request())
+            elif not grip_close and self._grip_open_client:
+                from std_srvs.srv import Trigger
+                self._grip_open_client.call_async(Trigger.Request())
+
+        g = "CLOSE" if grip_close else "OPEN"
+        print(f"[CMD] [{', '.join(f'{d:.1f}' for d in deg)}] {g}(stroke={stroke})")
+
+    def send_legacy(self, joints_rad, gripper_open, dt=0.1):
+        """하위 호환: 이전 인터페이스."""
+        deg = np.rad2deg(joints_rad).tolist()
         g = "OPEN" if gripper_open else "CLOSE"
         print(f"[CMD] [{', '.join(f'{d:.1f}' for d in deg)}] {g}")
 
@@ -158,10 +224,10 @@ def main(args):
             joints, grip = robot.get_state()
             adapter.set_current_state(joints, grip)
             cmd = adapter.convert(act, dt)
-            robot.send(cmd["joint_targets"], cmd["gripper_open"], dt)
+            robot.send(cmd, dt)
 
             # --- Level 4: 실패 감지 ---
-            status = detector.update(cmd["joint_targets"], cmd["clamp_ratio"])
+            status = detector.update(cmd["joint_targets_rad"], cmd["clamp_ratio"])
             if status["should_fallback"]:
                 print(f"\n⚠️  [step {step}] 반복 실패 — classical fallback 전환")
                 camera.release()

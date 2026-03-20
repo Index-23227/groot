@@ -57,10 +57,25 @@ class CameraCapture:
 
 
 class RobotStateReader:
+    """ROS2 /joint_states에서 arm 6 + gripper 상태를 읽는다.
+
+    /joint_states 토픽 구조 (gripper_joint_publisher가 발행):
+      msg.name = ['joint_1', ..., 'joint_6',
+                   'gripper_rh_r1', 'gripper_rh_r2', 'gripper_rh_l1', 'gripper_rh_l2']
+      msg.position = [j1_rad, ..., j6_rad, grip_rad, grip_rad, grip_rad, grip_rad]
+                       ^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                       arm 6개 (radian)     gripper 4개 (전부 같은 값, 0~1 범위)
+
+    VLA state 벡터: [j1, j2, j3, j4, j5, j6, grip]  (7-dim)
+      - arm: radian
+      - grip: 0.0 = 열림, 1.0 = 닫힘
+    """
+
     def __init__(self):
         self.latest_joints = np.zeros(NUM_JOINTS, dtype=np.float32)
-        self.latest_gripper = 0.0
+        self.latest_gripper = 0.0  # 0.0=열림, 1.0=닫힘
         self.connected = False
+        self._has_stroke_sub = False
         try:
             import rclpy
             from sensor_msgs.msg import JointState
@@ -69,15 +84,37 @@ class RobotStateReader:
             except RuntimeError:
                 pass
             self.node = rclpy.create_node("doosan_recorder")
-            topic = f"/dsr01{ROBOT_MODEL}/joint_states"
-            self.node.create_subscription(JointState, topic, self._cb, 10)
+
+            # /joint_states: arm 6 + gripper 4 (10개 joint)
+            self.node.create_subscription(
+                JointState, JOINT_STATE_TOPIC, self._joint_states_cb, 10)
             self.connected = True
-            print(f"[Robot] ROS2: {topic}")
+            print(f"[Robot] ROS2 joint_states: {JOINT_STATE_TOPIC}")
+
+            # /dsr01/gripper/stroke: 현재 그리퍼 stroke (0~700)
+            # joint_states에서도 그리퍼 값을 읽지만, stroke 토픽이 더 정확
+            try:
+                from std_msgs.msg import Int32
+                self.node.create_subscription(
+                    Int32, GRIPPER_STROKE_TOPIC, self._stroke_cb, 10)
+                self._has_stroke_sub = True
+                print(f"[Robot] ROS2 gripper stroke: {GRIPPER_STROKE_TOPIC}")
+            except Exception:
+                print(f"[Robot] gripper stroke 토픽 구독 실패, joint_states에서 읽음")
+
         except ImportError:
             print("[Robot] ROS2 unavailable — MOCK mode")
 
-    def _cb(self, msg):
+    def _joint_states_cb(self, msg):
+        """arm 6개 joint + gripper (joint_states에서)"""
         self.latest_joints = np.array(msg.position[:NUM_JOINTS], dtype=np.float32)
+        # gripper: 4개 joint 중 첫 번째 (전부 동일 값)
+        if len(msg.position) > NUM_JOINTS and not self._has_stroke_sub:
+            self.latest_gripper = float(msg.position[NUM_JOINTS])
+
+    def _stroke_cb(self, msg):
+        """그리퍼 stroke (0~700) → VLA grip (0.0~1.0)"""
+        self.latest_gripper = stroke_to_grip(msg.data)
 
     def read(self):
         if self.connected:

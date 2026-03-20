@@ -10,29 +10,65 @@ from configs.doosan_e0509_config import *
 
 def test_config():
     assert NUM_JOINTS == 6 and ACTION_DIM == 7 and len(JOINT_NAMES) == 6
+    assert JOINT_NAMES[0] == "joint_1", f"Expected 'joint_1', got '{JOINT_NAMES[0]}'"
+    assert GRIPPER_TYPE == "robotis_rh_p12_rn_a"
+    assert GRIPPER_STROKE_MAX == 700
     print("✅ config OK")
 
+def test_grip_conversion():
+    """grip ↔ stroke 변환 테스트"""
+    assert grip_to_stroke(0.0) == 0, "grip 0.0 → stroke 0 (open)"
+    assert grip_to_stroke(1.0) == 700, "grip 1.0 → stroke 700 (close)"
+    assert grip_to_stroke(0.5) == 350, "grip 0.5 → stroke 350"
+    assert stroke_to_grip(0) == 0.0
+    assert stroke_to_grip(700) == 1.0
+    assert abs(stroke_to_grip(350) - 0.5) < 0.01
+    # 클리핑
+    assert grip_to_stroke(-0.5) == 0
+    assert grip_to_stroke(1.5) == 700
+    print("✅ grip conversion OK")
+
 def test_normal():
+    """grip=0.8 → 닫힘(close), grip=0.2 → 열림(open)"""
     a = DoosanActionAdapter()
     a.set_current_state(np.zeros(NUM_JOINTS), 0.0)
+    # grip 0.8 → close (> 0.5)
     r = a.convert(np.array([0.01]*NUM_JOINTS + [0.8]))
-    assert not r["was_clamped"] and r["gripper_open"]
+    assert not r["was_clamped"]
+    assert r["gripper_close"] == True, "grip 0.8 should be CLOSE"
+    assert r["gripper_open"] == False
+    assert r["gripper_stroke"] == 560
+    # grip 0.2 → open (< 0.5)
+    r = a.convert(np.array([0.01]*NUM_JOINTS + [0.2]))
+    assert r["gripper_close"] == False, "grip 0.2 should be OPEN"
+    assert r["gripper_open"] == True
+    assert r["gripper_stroke"] == 140
     print("✅ normal OK")
 
 def test_clamp():
     a = DoosanActionAdapter()
     a.set_current_state(np.zeros(NUM_JOINTS), 0.0)
     r = a.convert(np.array([0.5]*NUM_JOINTS + [0.3]))
-    assert r["was_clamped"] and not r["gripper_open"]
+    assert r["was_clamped"]
+    assert r["gripper_close"] == False, "grip 0.3 should be OPEN"
     print("✅ clamp OK")
 
 def test_limits():
     a = DoosanActionAdapter()
     a.set_current_state(np.deg2rad([349, 89, 0, 0, 0, 0]), 1.0)
     r = a.convert(np.array([0.05, 0.05, 0, 0, 0, 0, 0.5]))
-    assert np.rad2deg(r["joint_targets"][0]) <= 350.01
-    assert np.rad2deg(r["joint_targets"][1]) <= 95.01
+    assert np.rad2deg(r["joint_targets_rad"][0]) <= 350.01
+    assert np.rad2deg(r["joint_targets_rad"][1]) <= 95.01
     print("✅ limits OK")
+
+def test_degree_conversion():
+    """adapter가 radian → degree 변환을 정확히 하는지"""
+    a = DoosanActionAdapter()
+    a.set_current_state(np.deg2rad([10, 20, 30, 40, 50, 60]), 0.0)
+    r = a.convert(np.array([0.0]*NUM_JOINTS + [0.5]))
+    # delta=0이므로 target_deg ≈ [10, 20, 30, 40, 50, 60]
+    np.testing.assert_array_almost_equal(r["joint_targets_deg"], [10, 20, 30, 40, 50, 60], decimal=1)
+    print("✅ degree conversion OK")
 
 def test_blender_first_chunk():
     """첫 chunk는 blending 없이 execute_horizon만큼 그대로 반환"""
@@ -71,9 +107,11 @@ def test_blender_reset():
 
 if __name__ == "__main__":
     test_config()
+    test_grip_conversion()
     test_normal()
     test_clamp()
     test_limits()
+    test_degree_conversion()
     test_blender_first_chunk()
     test_blender_smooth()
     test_blender_reset()

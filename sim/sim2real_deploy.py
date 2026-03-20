@@ -218,10 +218,10 @@ class Sim2RealController:
                 joints, grip = robot.get_state()
                 self.adapter.set_current_state(joints, grip)
                 cmd = self.adapter.convert(act, self.dt)
-                robot.send(cmd["joint_targets"], cmd["gripper_open"], self.dt)
+                robot.send(cmd, self.dt)
 
                 # 실패 감지
-                status = self.detector.update(cmd["joint_targets"], cmd["clamp_ratio"])
+                status = self.detector.update(cmd["joint_targets_rad"], cmd["clamp_ratio"])
 
                 if status["should_fallback"]:
                     print(f"\n⚠️  [step {step}] Sim2Real 실패 — classical fallback")
@@ -243,10 +243,9 @@ class Sim2RealController:
                     time.sleep(self.dt - elapsed)
 
                 if step % 20 == 0:
-                    joints_deg = np.rad2deg(cmd["joint_targets"])
-                    grip_str = "OPEN" if cmd["gripper_open"] else "CLOSE"
-                    print(f"  [step {step:3d}] [{', '.join(f'{d:.1f}' for d in joints_deg)}] "
-                          f"{grip_str}  clamp={cmd['clamp_ratio']:.0%}")
+                    grip_str = "CLOSE" if cmd["gripper_close"] else "OPEN"
+                    print(f"  [step {step:3d}] [{', '.join(f'{d:.1f}' for d in cmd['joint_targets_deg'])}] "
+                          f"{grip_str}(s={cmd['gripper_stroke']})  clamp={cmd['clamp_ratio']:.0%}")
                 step += 1
 
         camera.release()
