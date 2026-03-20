@@ -1,0 +1,81 @@
+{
+  "design": {
+    "scene_summary": "휴지통, 스프라이트 통조림, 두 종류의 빼빼로 상자가 있는 작업대",
+    "detected_objects": [
+      "Sprite can",
+      "Pepero boxes"
+    ],
+    "chosen_task": "affordance",
+    "task_reason": "로봇이 물체를 감지하고 상자와 음료수를 다룰 수 있는지를 평가하기 위해",
+    "instruction_for_gemini": "로봇 팔을 사용하여 스프라이트 캔을 집고 오른쪽으로 이동시킨 후, 빼빼로 상자를 확인하세요.",
+    "expected_output_keys": [
+      "picked_object",
+      "final_position",
+      "action_successful"
+    ],
+    "evaluation_criteria": [
+      "평가 기준 1: 물체 위치가 정확한가",
+      "평가 기준 2: 접근 방향이 물리적으로 타당한가"
+    ],
+    "difficulty": "medium",
+    "task_category": "manipulation"
+  },
+  "gemini": {
+    "task": "로봇 팔을 사용하여 스프라이트 캔을 집고 오른쪽으로 이동시킨 후, 빼빼로 상자를 확인하세요.",
+    "steps": [
+      {
+        "step": 1,
+        "description": "스프라이트 캔을 집습니다.",
+        "object": "스프라이트 캔",
+        "bbox": [
+          0.457,
+          0.486,
+          0.085,
+          0.148
+        ]
+      },
+      {
+        "step": 2,
+        "description": "스프라이트 캔을 오른쪽으로 이동시킵니다."
+      },
+      {
+        "step": 3,
+        "description": "빼빼로 상자를 확인합니다.",
+        "object": "빼빼로 상자",
+        "bbox": [
+          0.644,
+          0.587,
+          0.239,
+          0.312
+        ]
+      }
+    ]
+  },
+  "eval": {
+    "overall": "pass",
+    "score": 85,
+    "criteria_results": [
+      {
+        "criterion": "평가 기준 1: 물체 위치가 정확한가",
+        "result": "pass",
+        "comment": "스프라이트 캔과 빼빼로 상자의 위치가 잘 인식됨"
+      },
+      {
+        "criterion": "평가 기준 2: 접근 방향이 물리적으로 타당한가",
+        "result": "pass",
+        "comment": "물리적으로 타당한 방향으로 접근함"
+      }
+    ],
+    "strengths": [
+      "정확한 물체 인식",
+      "타당한 접근 방법"
+    ],
+    "weaknesses": [
+      "세부 단계 설명이 부족함"
+    ],
+    "critical_errors": [],
+    "embodied_reasoning_quality": "good",
+    "summary": "물체를 정확히 인식하고 적절한 방식으로 조작을 수행함."
+  },
+  "total_latency_s": 46.15
+}

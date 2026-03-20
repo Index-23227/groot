@@ -1,0 +1,161 @@
+{
+  "design": {
+    "scene_summary": "A table with a canned drink, a black cylindrical object, and two boxed snacks.",
+    "detected_objects": [
+      {
+        "label": "canned drink",
+        "shape": "cylindrical",
+        "size_estimate_mm": 80
+      },
+      {
+        "label": "black cylindrical object",
+        "shape": "cylindrical",
+        "size_estimate_mm": 50
+      },
+      {
+        "label": "orange boxed snack",
+        "shape": "box",
+        "size_estimate_mm": 150
+      },
+      {
+        "label": "green boxed snack",
+        "shape": "box",
+        "size_estimate_mm": 150
+      }
+    ],
+    "chosen_task": "manipulation",
+    "task_reason": "Selecting the most manipulable object without collision.",
+    "instruction_for_gemini": "Identify the 'canned drink' object. Provide normalized bounding box coordinates (bbox_norm), grasp point (grasp_point_norm) inside the bbox, approach direction considering surrounding objects, gripper opening between 50-80mm, pregrasp offset with a positive z value, and assess collision risk. Include pick, lift, move, and place steps in the output JSON.",
+    "expected_output_keys": [
+      "bbox_norm",
+      "grasp_point_norm",
+      "approach_direction",
+      "gripper_opening_mm",
+      "pregrasp_offset_mm",
+      "collision_risk",
+      "action_steps"
+    ],
+    "evaluation_criteria": [
+      "bbox_norm 4개 값 모두 존재하고 0~1 범위인가",
+      "grasp_point_norm이 bbox 내부에 위치하는가",
+      "gripper_opening_mm이 물체 크기보다 크고 120mm 이하인가",
+      "approach_direction이 씬의 장애물을 고려했는가",
+      "pregrasp_offset_mm z값이 양수(위에서 접근)인가",
+      "collision_risk 판단 근거가 구체적인가",
+      "action_steps에 pick/lift/move/place가 모두 포함되는가"
+    ],
+    "difficulty": "medium",
+    "task_category": "perception/manipulation"
+  },
+  "gemini": {
+    "object_name": "canned drink",
+    "bbox_norm": [
+      0.451,
+      0.486,
+      0.062,
+      0.096
+    ],
+    "grasp_point_norm": [
+      0.451,
+      0.486
+    ],
+    "pick": {
+      "approach_direction": [
+        0,
+        0,
+        -1
+      ],
+      "gripper_opening": 70,
+      "pregrasp_offset": [
+        0,
+        0,
+        0.1
+      ],
+      "collision_risk": "Low"
+    },
+    "lift": {
+      "direction": [
+        0,
+        0,
+        1
+      ],
+      "distance": 0.1
+    },
+    "move": {
+      "target_location": [
+        0.75,
+        0.75,
+        0.1
+      ]
+    },
+    "place": {
+      "direction": [
+        0,
+        0,
+        -1
+      ],
+      "distance": 0.1
+    }
+  },
+  "eval": {
+    "overall": "partial",
+    "score": 75,
+    "criteria_results": [
+      {
+        "criterion": "bbox_norm 4개 값 모두 존재하고 0~1 범위인가",
+        "result": "pass",
+        "score": 15,
+        "comment": "모든 값이 0~1 범위 내에 있음 (0.451, 0.486, 0.062, 0.096)"
+      },
+      {
+        "criterion": "grasp_point_norm이 bbox 내부에 위치하는가",
+        "result": "pass",
+        "score": 15,
+        "comment": "grasp_point_norm이 bbox 내부에 위치 (0.451, 0.486)"
+      },
+      {
+        "criterion": "gripper_opening_mm이 물체 크기보다 크고 120mm 이하인가",
+        "result": "pass",
+        "score": 15,
+        "comment": "gripper_opening이 70mm로 120mm 이하임"
+      },
+      {
+        "criterion": "approach_direction이 씬의 장애물을 고려했는가",
+        "result": "fail",
+        "score": 0,
+        "comment": "접근 방향이 [-1]로 위에서 접근, 장애물 고려되지 않음"
+      },
+      {
+        "criterion": "pregrasp_offset_mm z값이 양수(위에서 접근)인가",
+        "result": "pass",
+        "score": 15,
+        "comment": "pregrasp_offset z값이 0.1로 양수임"
+      },
+      {
+        "criterion": "collision_risk 판단 근거가 구체적인가",
+        "result": "fail",
+        "score": 0,
+        "comment": "'Low' 단어만으로 충분히 구체적이지 않음"
+      },
+      {
+        "criterion": "action_steps에 pick/lift/move/place가 모두 포함되는가",
+        "result": "pass",
+        "score": 15,
+        "comment": "모든 action_steps가 포함됨 (pick, lift, move, place)"
+      }
+    ],
+    "missing_fields": [],
+    "physical_violations": [],
+    "strengths": [
+      "모든 좌표와 범위가 적절히 입력됨"
+    ],
+    "weaknesses": [
+      "접근 방향에서 장애물 고려가 부족함",
+      "충돌 위험에 대한 판단 근거가 충분히 구체적이지 않음"
+    ],
+    "embodied_reasoning_quality": "good",
+    "robot_usable": true,
+    "summary": "기본 요구 사항은 충족되었으나 몇 가지 세부 사항 개선 필요"
+  },
+  "total_latency_s": 71.28999999999999
+}
