@@ -12,7 +12,7 @@ import numpy as np
 # 🔧 현장에서 업데이트할 항목
 # =============================================================
 
-CONTROLLER_IP = "192.168.127.100"
+CONTROLLER_IP = "192.168.137.100"
 CONTROLLER_PORT = 12345
 ROBOT_MODEL = "e0509"
 

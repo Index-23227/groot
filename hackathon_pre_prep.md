@@ -27,7 +27,7 @@
 - **Repeatability**: ±0.05 mm
 - **DOF**: 6 + gripper
 - **Protection**: IP66 (F&B 전용)
-- **Controller IP (default)**: 192.168.127.100
+- **Controller IP (default)**: 192.168.137.100
 - **Controller Port (default)**: 12345
 
 ### ROS2 Joint Names (e0509_gripper_description 패키지)
@@ -441,7 +441,7 @@ ROS2 Node: VLA Inference Server → Doosan E0509 제어
 로봇 없이 코드 구조만 미리 완성. 현장에서 IP/port만 설정.
 
 실행:
-  ros2 launch dsr_bringup2 dsr_bringup2.launch.py mode:=real model:=e0509 host:=192.168.127.100
+  ros2 launch dsr_bringup2 dsr_bringup2.launch.py mode:=real model:=e0509 host:=192.168.137.100
   python doosan_vla_controller.py
 """
 
@@ -513,7 +513,7 @@ class DoosanRobotInterface:
     2. 두산 DRCF TCP 직접 통신 (servoj)
     """
     
-    def __init__(self, mode: str = "drcf", robot_ip: str = "192.168.127.100"):
+    def __init__(self, mode: str = "drcf", robot_ip: str = "192.168.137.100"):
         self.mode = mode
         self.robot_ip = robot_ip
         self.drcf_port = 12345
@@ -594,7 +594,7 @@ class VLAControlLoop:
     def __init__(
         self,
         vla_url: str = "http://localhost:8000",
-        robot_ip: str = "192.168.127.100",
+        robot_ip: str = "192.168.137.100",
         control_hz: float = 10.0,
         instruction: str = "저 긴 물체 좀 가져다줘",
     ):
@@ -687,7 +687,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--vla-url", default="http://localhost:8000")
-    parser.add_argument("--robot-ip", default="192.168.127.100")
+    parser.add_argument("--robot-ip", default="192.168.137.100")
     parser.add_argument("--hz", type=float, default=10.0)
     parser.add_argument("--instruction", default="저 긴 물체 좀 가져다줘")
     parser.add_argument("--max-steps", type=int, default=200)
@@ -714,7 +714,7 @@ if __name__ == "__main__":
 두산 Direct Teaching (Hand Guiding) + 카메라 동기 녹화.
 
 현장에서 실행:
-  python demo_recorder.py --robot-ip 192.168.127.100 --save-dir ./demos
+  python demo_recorder.py --robot-ip 192.168.137.100 --save-dir ./demos
 """
 
 import os
@@ -839,7 +839,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--save-dir", default="./demos")
-    parser.add_argument("--robot-ip", default="192.168.127.100")
+    parser.add_argument("--robot-ip", default="192.168.137.100")
     parser.add_argument("--hz", type=float, default=10.0)
     parser.add_argument("--instruction", default="파란 약병을 트레이에 옮겨줘")
     parser.add_argument("--num-episodes", type=int, default=50)
@@ -864,7 +864,7 @@ if __name__ == "__main__":
 
 ### 도착 즉시 (첫 30분)
 - [ ] 두산 E0509 모델 번호 확인 (E0509인지 다른 모델인지)
-- [ ] 컨트롤러 IP 확인 (`192.168.127.100`이 맞는지)
+- [ ] 컨트롤러 IP 확인 (`192.168.137.100`이 맞는지)
 - [ ] 네트워크 연결 확인 (노트북 → 컨트롤러 ping)
 - [ ] Teach pendant에서 joint limits 설정 확인 → config 업데이트
 - [ ] **Joint 2 실제 범위 확인** (±95° vs ±360° — 설치 방식에 따라 다름)

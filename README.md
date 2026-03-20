@@ -78,7 +78,7 @@ hackathon-doosan-vla/
 ```bash
 # 체크리스트
 # [ ] 두산 모델 확인 (E0509? 다른 모델?)
-# [ ] 컨트롤러 IP (기본: 192.168.127.100)
+# [ ] 컨트롤러 IP (기본: 192.168.137.100)
 # [ ] teach pendant → joint limits 확인
 # [ ] hand-guiding 버튼 동작 확인
 # [ ] 그리퍼 종류 + 제어 방식 (joint? GPIO? Modbus?)
@@ -114,7 +114,7 @@ bash scripts/01_setup_smolvla.sh
 python -c "import cv2; cap = cv2.VideoCapture(0); print(cap.read()[0])"
 
 # ROS2 두산 노드 실행
-ros2 launch dsr_bringup2 dsr_bringup2.launch.py mode:=real model:=e0509 host:=192.168.127.100
+ros2 launch dsr_bringup2 dsr_bringup2.launch.py mode:=real model:=e0509 host:=192.168.137.100
 
 # joint_states 확인
 ros2 topic echo /joint_states
