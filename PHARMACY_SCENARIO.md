@@ -77,6 +77,58 @@
 
 ## 시뮬레이션
 
+### Isaac Sim 시뮬레이션 (3D 물리 + 카메라 렌더링)
+
+GPU가 있는 환경에서 Isaac Sim 기반 물리 시뮬레이션:
+
+```bash
+# 환경 테스트 (GUI 모드)
+python sim/pharmacy_isaac_env.py
+
+# Headless + Domain Randomization
+python sim/pharmacy_isaac_env.py --headless --domain-rand
+
+# 자동 데모 수집 (200개, DR 적용)
+python sim/isaac_data_collector.py --num-episodes 200 --headless --domain-rand
+
+# 특정 시나리오만
+python sim/isaac_data_collector.py --scenario basic_single --num-episodes 50
+```
+
+### Isaac Sim → 학습 → 배포 파이프라인
+
+```
+Isaac Sim 데모 수집               학습                    배포
+─────────────────    ──────────────────    ──────────────
+sim/isaac_data_      utils/convert_to_    sim/sim2real_
+collector.py         lerobot.py           deploy.py
+     │                    │                    │
+     ▼                    ▼                    ▼
+./data/sim_raw/  →  ./data/lerobot/  →  실제 E0509 로봇
+(200~500 에피소드)   (LeRobot v2 형식)   (Sim2Real 보정 적용)
+```
+
+```bash
+# 1. Sim 데모 수집
+python sim/isaac_data_collector.py --num-episodes 500 --headless --domain-rand
+
+# 2. LeRobot v2 변환
+python utils/convert_to_lerobot.py --data-dir ./data/sim_raw
+
+# 3. GR00T 학습
+bash scripts/04_train_groot.sh
+
+# 4-a. Sim에서 먼저 평가
+python sim/sim2real_deploy.py --mode sim-eval --scenario basic_single
+
+# 4-b. Sim2Real 캘리브레이션 (실제 로봇 연결 시)
+python sim/sim2real_deploy.py --mode calibrate
+
+# 4-c. 실제 로봇 배포
+python sim/sim2real_deploy.py --mode real \
+  --instruction "Pick up the blue medicine bottle and place it in dispensing slot 1"
+```
+
 ### 소프트웨어 시뮬레이션 (로봇 없이)
 
 전체 파이프라인을 로봇 없이 검증:
