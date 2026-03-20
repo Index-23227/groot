@@ -12,7 +12,7 @@ import requests
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from configs.doosan_e0509_config import *
-from utils.doosan_action_adapter import DoosanActionAdapter, DoosanSafetyConfig
+from vla.doosan_action_adapter import DoosanActionAdapter, DoosanSafetyConfig
 
 
 class TemporalBlender:
@@ -173,7 +173,7 @@ class DoosanRobot:
 
 def main(args):
     from utils.doosan_recorder import CameraCapture
-    from utils.failure_detector import FailureDetector
+    from vla.failure_detector import FailureDetector
 
     vla = VLAClient(args.vla_url)
     robot = DoosanRobot()
@@ -231,7 +231,7 @@ def main(args):
             if status["should_fallback"]:
                 print(f"\n⚠️  [step {step}] 반복 실패 — classical fallback 전환")
                 camera.release()
-                from utils.plan_c_classical import main as classical_main
+                from vla.plan_c_classical import main as classical_main
                 classical_main(argparse.Namespace(
                     instruction=instruction, test_vision=False))
                 return

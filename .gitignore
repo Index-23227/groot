@@ -10,3 +10,5 @@ lerobot/
 wandb/
 .env
 *.env
+token
+token.*

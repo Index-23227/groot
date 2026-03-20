@@ -58,6 +58,8 @@ GRIPPER_CLOSE_SERVICE = "/dsr01/gripper/close"             # std_srvs/Trigger
 GRIPPER_POSITION_TOPIC = "/dsr01/gripper/position_cmd"     # std_msgs/Int32 (0~700)
 GRIPPER_STROKE_TOPIC = "/dsr01/gripper/stroke"             # std_msgs/Int32 (현재 stroke)
 MOVE_JOINT_SERVICE = "/dsr01/motion/move_joint"            # dsr_msgs2/MoveJoint (degree!)
+MOVE_LINE_SERVICE  = "/dsr01/motion/move_line"             # dsr_msgs2/MoveLine — Cartesian (mm + deg)
+GET_TCP_SERVICE    = "/dsr01/aux_control/get_current_posx" # dsr_msgs2/GetCurrentPosx → pos[6]
 
 # ⚠️ 두산은 degree 단위, VLA는 radian 단위
 # 이 변환은 반드시 adapter 한 곳에서만 수행

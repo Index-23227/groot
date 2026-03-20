@@ -5,7 +5,7 @@
 import sys, os
 import numpy as np
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils.doosan_action_adapter import DoosanActionAdapter, DoosanSafetyConfig
+from vla.doosan_action_adapter import DoosanActionAdapter, DoosanSafetyConfig
 from configs.doosan_e0509_config import *
 
 def test_config():
