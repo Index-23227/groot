@@ -15,6 +15,44 @@ from configs.doosan_e0509_config import *
 from utils.doosan_action_adapter import DoosanActionAdapter, DoosanSafetyConfig
 
 
+class TemporalBlender:
+    """Action chunk temporal blending — 연속 chunk 간 부드러운 전환.
+
+    VLA 모델이 매 스텝 action chunk (T, action_dim)을 출력할 때,
+    이전 잔여 action과 새 chunk를 overlap 구간에서 가중 평균하여
+    급격한 action 변화를 완화한다.
+    """
+
+    def __init__(self, execute_horizon: int = 4, overlap: int = 4, decay: float = 0.7):
+        self.execute_horizon = execute_horizon
+        self.overlap = overlap
+        self.decay = decay
+        self._buffer = None  # 이전 chunk의 잔여 action
+
+    def blend(self, chunk: np.ndarray) -> np.ndarray:
+        """chunk (T, action_dim) → 실행할 actions (execute_horizon, action_dim)"""
+        if self._buffer is None:
+            # 첫 chunk: blending 없이 그대로 반환
+            self._buffer = chunk[self.execute_horizon:]
+            return chunk[:self.execute_horizon].copy()
+
+        # overlap 구간에서 이전 잔여와 새 chunk를 blending
+        new = chunk.copy()
+        blend_len = min(self.overlap, len(self._buffer), len(new))
+        for i in range(blend_len):
+            # decay^(i+1): 앞쪽일수록 이전 버퍼 비중 높음, 뒤로 갈수록 새 chunk 비중 높음
+            w_old = self.decay ** (i + 1)
+            w_new = 1.0 - w_old
+            new[i] = w_old * self._buffer[i] + w_new * new[i]
+
+        result = new[:self.execute_horizon]
+        self._buffer = new[self.execute_horizon:]
+        return result
+
+    def reset(self):
+        self._buffer = None
+
+
 class VLAClient:
     def __init__(self, url):
         self.url = url
@@ -73,23 +111,46 @@ def main(args):
     robot = DoosanRobot()
     adapter = DoosanActionAdapter()
     camera = CameraCapture()
+    blender = TemporalBlender(
+        execute_horizon=args.execute_horizon,
+        overlap=args.overlap,
+        decay=args.decay,
+    )
     dt = 1.0 / args.hz
 
-    print(f"\n=== Deploy: {args.instruction} @ {args.hz}Hz ===\n")
-    for step in range(args.max_steps):
-        t0 = time.time()
+    print(f"\n=== Deploy: {args.instruction} @ {args.hz}Hz ===")
+    print(f"    chunk: execute_horizon={args.execute_horizon}, overlap={args.overlap}, decay={args.decay}\n")
+
+    step = 0
+    while step < args.max_steps:
+        # VLA inference — action chunk 획득
         joints, grip = robot.get_state()
         adapter.set_current_state(joints, grip)
         img = camera.read()
-        act = vla.predict(img, np.concatenate([joints, [grip]]), args.instruction)
-        if act is None: continue
-        if act.ndim == 2: act = act[0]
-        cmd = adapter.convert(act, dt)
-        robot.send(cmd["joint_targets"], cmd["gripper_open"], dt)
-        elapsed = time.time() - t0
-        if dt - elapsed > 0: time.sleep(dt - elapsed)
-        if step % 20 == 0:
-            print(f"  [step {step}] clamp={cmd['clamp_ratio']:.0%} dt={elapsed*1000:.0f}ms")
+        chunk = vla.predict(img, np.concatenate([joints, [grip]]), args.instruction)
+        if chunk is None:
+            continue
+        if chunk.ndim == 1:
+            chunk = chunk.reshape(1, -1)
+
+        # Temporal blending → execute_horizon 개의 action
+        actions = blender.blend(chunk)
+
+        # execute_horizon 스텝 동안 action 실행
+        for act in actions:
+            if step >= args.max_steps:
+                break
+            t0 = time.time()
+            joints, grip = robot.get_state()
+            adapter.set_current_state(joints, grip)
+            cmd = adapter.convert(act, dt)
+            robot.send(cmd["joint_targets"], cmd["gripper_open"], dt)
+            elapsed = time.time() - t0
+            if dt - elapsed > 0:
+                time.sleep(dt - elapsed)
+            if step % 20 == 0:
+                print(f"  [step {step}] clamp={cmd['clamp_ratio']:.0%} dt={elapsed*1000:.0f}ms")
+            step += 1
     camera.release()
 
 
@@ -99,4 +160,7 @@ if __name__ == "__main__":
     p.add_argument("--instruction", default="Pick up the blue bottle and place it on the tray")
     p.add_argument("--hz", type=float, default=float(CONTROL_HZ))
     p.add_argument("--max-steps", type=int, default=200)
+    p.add_argument("--execute-horizon", type=int, default=4)
+    p.add_argument("--overlap", type=int, default=4)
+    p.add_argument("--decay", type=float, default=0.7)
     main(p.parse_args())
