@@ -1,0 +1,101 @@
+[
+  {
+    "can_visible": true,
+    "gripper_visible": true,
+    "graspable": true,
+    "confidence": 0.93,
+    "gripper_position": "캔 위",
+    "reason": "로봇 그리퍼는 스프라이트 캔을 직접적으로 잡는 위치에 있습니다. 그리퍼는 캔을 중심으로 하여, 그 위에 위치하고 있으며, 캔을 잡는 데 필요한 정렬 상태를 갖추고 있습니다. 그리퍼와 캔 사이의 거리가 적절하며, 정렬 상태는 매우 좋습니다.",
+    "image": "base1",
+    "latency_s": 5.9,
+    "raw_output": "```json\n{\n  \"can_visible\": true,\n  \"gripper_visible\": true,\n  \"graspable\": true,\n  \"confidence\": 0.93,\n  \"gripper_position\": \"캔 위\",\n  \"reason\": \"로봇 그리퍼는 스프라이트 캔을 직접적으로 잡는 위치에 있습니다. 그리퍼는 캔을 중심으로 하여, 그 위에 위치하고 있으며, 캔을 잡는 데 필요한 정렬 상태를 갖추고 있습니다. 그리퍼와 캔 사이의 거리가 적절하며, 정렬 상태는 매우 좋습니다.\"\n}\n```"
+  },
+  {
+    "can_visible": true,
+    "gripper_visible": true,
+    "graspable": true,
+    "confidence": 0.93,
+    "gripper_position": "캔 위",
+    "reason": "로봇 그리퍼는 스프라이트 캔을 직접적으로 잡는 위치에 있으며, 캔을 중심으로 하여 정렬되어 있습니다. 그리퍼는 캔을 향해 내려오고 있으며, 그 사이의 거리가 적절히 조절되어 잡을 수 있는 상태입니다.",
+    "image": "base2",
+    "latency_s": 2.5,
+    "raw_output": "```json\n{\n  \"can_visible\": true,\n  \"gripper_visible\": true,\n  \"graspable\": true,\n  \"confidence\": 0.93,\n  \"gripper_position\": \"캔 위\",\n  \"reason\": \"로봇 그리퍼는 스프라이트 캔을 직접적으로 잡는 위치에 있으며, 캔을 중심으로 하여 정렬되어 있습니다. 그리퍼는 캔을 향해 내려오고 있으며, 그 사이의 거리가 적절히 조절되어 잡을 수 있는 상태입니다.\"\n}\n```"
+  },
+  {
+    "can_visible": true,
+    "gripper_visible": true,
+    "graspable": true,
+    "confidence": 0.93,
+    "gripper_position": "캔 위",
+    "reason": "로봇 그리퍼는 캔을 직접적으로 잡는 위치에 있으며, 캔을 중심으로 하여 정렬되어 있습니다. 그리퍼는 캔을 향해 내려오고 있으며, 그 위치는 캔을 잡을 수 있는 상태입니다.",
+    "image": "base3",
+    "latency_s": 2.3,
+    "raw_output": "```json\n{\n  \"can_visible\": true,\n  \"gripper_visible\": true,\n  \"graspable\": true,\n  \"confidence\": 0.93,\n  \"gripper_position\": \"캔 위\",\n  \"reason\": \"로봇 그리퍼는 캔을 직접적으로 잡는 위치에 있으며, 캔을 중심으로 하여 정렬되어 있습니다. 그리퍼는 캔을 향해 내려오고 있으며, 그 위치는 캔을 잡을 수 있는 상태입니다.\"\n}\n```"
+  },
+  {
+    "can_visible": true,
+    "gripper_visible": true,
+    "graspable": true,
+    "confidence": 0.93,
+    "gripper_position": "캔 위",
+    "reason": "로봇 그리퍼는 스프라이트 캔을 직접적으로 잡는 위치에 있으며, 캔을 중심으로 하여 정렬되어 있습니다. 그리퍼는 캔을 향해 내려오는 상태이며, 캔과의 거리가 매우 작아 잡을 수 있는 위치에 있습니다.",
+    "image": "base4",
+    "latency_s": 2.5,
+    "raw_output": "```json\n{\n  \"can_visible\": true,\n  \"gripper_visible\": true,\n  \"graspable\": true,\n  \"confidence\": 0.93,\n  \"gripper_position\": \"캔 위\",\n  \"reason\": \"로봇 그리퍼는 스프라이트 캔을 직접적으로 잡는 위치에 있으며, 캔을 중심으로 하여 정렬되어 있습니다. 그리퍼는 캔을 향해 내려오는 상태이며, 캔과의 거리가 매우 작아 잡을 수 있는 위치에 있습니다.\"\n}\n```"
+  },
+  {
+    "can_visible": true,
+    "gripper_visible": true,
+    "graspable": true,
+    "confidence": 0.93,
+    "gripper_position": "캔 위",
+    "reason": "로봇 그리퍼는 스프라이트 캔을 직접적으로 잡는 위치에 있으며, 캔을 향해 내려오는 경로를 가지고 있어 잡을 수 있는 상태입니다.",
+    "image": "base5",
+    "latency_s": 2.0,
+    "raw_output": "```json\n{\n  \"can_visible\": true,\n  \"gripper_visible\": true,\n  \"graspable\": true,\n  \"confidence\": 0.93,\n  \"gripper_position\": \"캔 위\",\n  \"reason\": \"로봇 그리퍼는 스프라이트 캔을 직접적으로 잡는 위치에 있으며, 캔을 향해 내려오는 경로를 가지고 있어 잡을 수 있는 상태입니다.\"\n}\n```"
+  },
+  {
+    "can_visible": true,
+    "gripper_visible": true,
+    "graspable": true,
+    "confidence": 0.93,
+    "gripper_position": "캔 위",
+    "reason": "로봇 그리퍼는 녹색 스프라이트 캔 위에 위치하고 있으며, 그 위에 있는 것으로 보입니다. 그리퍼는 캔을 집을 수 있는 위치에 있으며, 캔을 향해 내려오는 경로를 가지고 있습니다. 그리퍼와 캔 사이의 거리가 적고 정렬 상태도 좋으며, 캔을 잡을 수 있는 조건을 충족하고 있습니다.",
+    "image": "base6",
+    "latency_s": 3.0,
+    "raw_output": "```json\n{\n  \"can_visible\": true,\n  \"gripper_visible\": true,\n  \"graspable\": true,\n  \"confidence\": 0.93,\n  \"gripper_position\": \"캔 위\",\n  \"reason\": \"로봇 그리퍼는 녹색 스프라이트 캔 위에 위치하고 있으며, 그 위에 있는 것으로 보입니다. 그리퍼는 캔을 집을 수 있는 위치에 있으며, 캔을 향해 내려오는 경로를 가지고 있습니다. 그리퍼와 캔 사이의 거리가 적고 정렬 상태도 좋으며, 캔을 잡을 수 있는 조건을 충족하고 있습니다.\"\n}\n```"
+  },
+  {
+    "can_visible": true,
+    "gripper_visible": true,
+    "graspable": true,
+    "confidence": 0.93,
+    "gripper_position": "캔 위",
+    "reason": "로봇 그리퍼는 녹색 스프라이트 캔을 직접 잡는 위치에 있습니다. 그리퍼는 캔을 중심으로 하고 있으며, 캔을 잡는 데 필요한 정렬 상태를 갖추고 있습니다.",
+    "image": "base7",
+    "latency_s": 2.2,
+    "raw_output": "```json\n{\n  \"can_visible\": true,\n  \"gripper_visible\": true,\n  \"graspable\": true,\n  \"confidence\": 0.93,\n  \"gripper_position\": \"캔 위\",\n  \"reason\": \"로봇 그리퍼는 녹색 스프라이트 캔을 직접 잡는 위치에 있습니다. 그리퍼는 캔을 중심으로 하고 있으며, 캔을 잡는 데 필요한 정렬 상태를 갖추고 있습니다.\"\n}\n```"
+  },
+  {
+    "can_visible": true,
+    "gripper_visible": true,
+    "graspable": true,
+    "confidence": 0.93,
+    "gripper_position": "캔 위",
+    "reason": "로봇 그리퍼는 스프라이트 캔을 직접적으로 잡는 위치에 있습니다. 그리퍼는 캔을 중심으로 하여, 그 위에 위치하고 있으며, 캔을 잡는 데 필요한 공간과 정렬 상태를 갖추고 있습니다.",
+    "image": "base8",
+    "latency_s": 2.3,
+    "raw_output": "```json\n{\n  \"can_visible\": true,\n  \"gripper_visible\": true,\n  \"graspable\": true,\n  \"confidence\": 0.93,\n  \"gripper_position\": \"캔 위\",\n  \"reason\": \"로봇 그리퍼는 스프라이트 캔을 직접적으로 잡는 위치에 있습니다. 그리퍼는 캔을 중심으로 하여, 그 위에 위치하고 있으며, 캔을 잡는 데 필요한 공간과 정렬 상태를 갖추고 있습니다.\"\n}\n```"
+  },
+  {
+    "can_visible": true,
+    "gripper_visible": true,
+    "graspable": true,
+    "confidence": 0.93,
+    "gripper_position": "캔 위",
+    "reason": "로봇 그리퍼는 녹색 스프라이트 캔을 직접적으로 잡고 있는 것으로 보이며, 캔은 그 위에 위치하고 있습니다. 그리퍼는 캔을 중심으로 하고 있으며, 캔을 잡는 위치에 정렬되어 있습니다.",
+    "image": "base9",
+    "latency_s": 2.3,
+    "raw_output": "```json\n{\n  \"can_visible\": true,\n  \"gripper_visible\": true,\n  \"graspable\": true,\n  \"confidence\": 0.93,\n  \"gripper_position\": \"캔 위\",\n  \"reason\": \"로봇 그리퍼는 녹색 스프라이트 캔을 직접적으로 잡고 있는 것으로 보이며, 캔은 그 위에 위치하고 있습니다. 그리퍼는 캔을 중심으로 하고 있으며, 캔을 잡는 위치에 정렬되어 있습니다.\"\n}\n```"
+  }
+]
