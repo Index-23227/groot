@@ -56,7 +56,7 @@ hackathon-doosan-vla/
 | **P1** | 리드 | 로봇 셋업 + ROS2 조작 + 데모(조작자) + 전략 의사결정 + 발표 |
 | **P2** | A안 | GR00T 셋업 + 데모(운영자) + GR00T 학습/튜닝 |
 | **P3** | Plan B | SmolVLA 셋업 + 데이터 변환 + SmolVLA 학습 |
-| **P4** | 인프라 | 카메라 + ROS2 + 데이터 QA + cuRobo + adapter |
+| **P4** | 인프라 | 그리퍼 + 환경설정 + 카메라 뷰 + quaternion + cuRobo + Isaac Sim 세팅 |
 | **P5** | Plan C | Claude+cuRobo 구현 + 시연 시나리오 + 발표 자료 |
 
 ---
