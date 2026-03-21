@@ -9,7 +9,7 @@
 
 | 이름 | 역할 |
 |------|------|
-| Hyeongjin Kim | 프로젝트 리드, 코드베이스 관리 |
+| Hyeongjin Kim | VLM 엔지니어링, 코드베이스 관리 |
 | jun | Gemini ER/SAM2/GPT-4o 파이프라인 개발 |
 | JJW2602 | 로컬 VLM 테스트 (Cosmos-Reason2), STT 통합 |
 | woongje-cho | 로봇 제어, 캘리브레이션, 현장 통합 |
