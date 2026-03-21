@@ -12,15 +12,15 @@ import numpy as np
 # 🔧 현장에서 업데이트할 항목
 # =============================================================
 
-CONTROLLER_IP = "192.168.127.100"
+CONTROLLER_IP = "110.120.1.39"
 CONTROLLER_PORT = 12345
 ROBOT_MODEL = "e0509"
 
 CAMERA_TYPE = "realsense"  # "opencv" / "realsense" / "ros2_topic"
 CAMERA_INDEX = 0
 CAMERA_TOPIC = "/camera/color/image_raw"
-CAMERA_WIDTH = 640
-CAMERA_HEIGHT = 480
+CAMERA_WIDTH = 1280
+CAMERA_HEIGHT = 720
 CAMERA_FPS = 30
 
 # =============================================================
