@@ -216,15 +216,41 @@ def verify_action(client, rgb_before, rgb_after, action_task, history_entry):
         task_desc = f"Robot attempted action: {action_task}"
         criteria = "Determine if the action was successful based on visual changes."
 
+    # EE 좌표 정보 (history에서 가져오기)
+    ee_info = ""
+    if history_entry:
+        if history_entry.get("ee_pick"):
+            ee_info += f"  PICK EE pixel: {history_entry['ee_pick']}\n"
+        if history_entry.get("ee_place"):
+            ee_info += f"  PLACE EE pixel: {history_entry['ee_place']}\n"
+
     prompt = (
         f"You are evaluating whether a robot action was successful.\n\n"
-        f"Action: {task_desc}\n\n"
+        f"Action: {task_desc}\n"
+        f"{ee_info}\n"
         f"{criteria}\n\n"
         f"Image 1 (BEFORE): The scene before the action.\n"
         f"Image 2 (AFTER): The scene after the action.\n\n"
-        f"Compare the two images and determine if the action succeeded.\n\n"
+        f"Compare the two images and determine:\n"
+        f"1. Did the action succeed?\n"
+        f"2. If FAILED, what is the failure reason? Choose ONE:\n"
+        f"   - 'ee_offset': EE target position was inaccurate (missed the object)\n"
+        f"   - 'grip_fail': Gripper failed to grasp (object slipped or not gripped)\n"
+        f"   - 'collision': Robot collided with another object\n"
+        f"   - 'wrong_object': Robot picked/placed the wrong object\n"
+        f"   - 'object_fell': Object fell during transport\n"
+        f"   - 'partial': Action partially succeeded but not complete\n"
+        f"   - 'unknown': Cannot determine the cause\n"
+        f"3. If FAILED, suggest a correction:\n"
+        f"   - For 'ee_offset': suggest direction to adjust (left/right/up/down/closer/farther)\n"
+        f"   - For 'grip_fail': suggest grip force change (increase/decrease)\n"
+        f"   - For 'wrong_object': identify which object was actually targeted\n\n"
         'Respond ONLY in JSON:\n'
-        '{"success": true, "rationale": "detailed reasoning", "confidence": 0.9}'
+        '{"success": true,'
+        ' "rationale": "detailed reasoning",'
+        ' "confidence": 0.9,'
+        ' "failure_reason": null,'
+        ' "correction": null}'
     )
 
     content = [
@@ -283,15 +309,22 @@ def verify_from_history(client, rgb_current, session_id, tm):
     print(f"\n  [Verify] step {latest['step_index']} ({task_type}, {target}) 검증 중...")
     result = verify_action(client, rgb_before, rgb_current, task, latest)
     success = result.get("success", False)
+    failure_reason = result.get("failure_reason")
+    correction = result.get("correction")
     status = "SUCCESS" if success else "FAILED"
     print(f"    결과: {status}  conf={result.get('confidence','')}")
     print(f"    rationale: {result.get('rationale','')}")
+    if not success:
+        print(f"    failure_reason: {failure_reason}")
+        print(f"    correction: {correction}")
 
     return {
         "verified": True,
         "success": success,
         "rationale": result.get("rationale", ""),
         "confidence": result.get("confidence", 0),
+        "failure_reason": failure_reason,
+        "correction": correction,
     }
 
 
@@ -614,9 +647,13 @@ if latest_hist and not latest_hist.get("verified"):
             entry["success"] = verify_res["success"]
             entry["verify_rationale"] = verify_res.get("rationale", "")
             entry["verify_confidence"] = verify_res.get("confidence", 0)
+            entry["failure_reason"] = verify_res.get("failure_reason")
+            entry["correction"] = verify_res.get("correction")
             last_file.write_text(json.dumps(entry, indent=2, ensure_ascii=False), encoding="utf-8")
             status_str = "SUCCESS" if verify_res["success"] else "FAILED"
-            print(f"    history 업데이트: {status_str}")
+            reason_str = f" → {verify_res.get('failure_reason','')}" if not verify_res["success"] else ""
+            correct_str = f" → correction: {verify_res.get('correction','')}" if not verify_res["success"] else ""
+            print(f"    history 업데이트: {status_str}{reason_str}{correct_str}")
 
 # 다음 실행할 action 결정
 next_action = tm.get_next_action(session_id)
@@ -924,6 +961,51 @@ if place_mask is not None and place_crop is not None:
             place_mask, masks, depth_np, H, W)
         place_method = f"여유 공간 ({best_dir}, 관계: {relation})"
         print(f"    PLACE EE: {place_ee}  depth: {place_depth_str}  방향: {best_dir}")
+
+# ── Error Recovery: 이전 실패의 correction 반영 ──────────────
+CORRECTION_PX = 20  # 보정 시 이동할 픽셀 수
+
+if is_retry and verification_result and not verification_result.get("success"):
+    correction = verification_result.get("correction")
+    failure_reason = verification_result.get("failure_reason")
+
+    if correction and failure_reason == "ee_offset":
+        old_ee = pick_ee if current_task["task"] == "pick" else place_ee
+        if old_ee:
+            dx, dy = 0, 0
+            correction_lower = correction.lower()
+            if "left" in correction_lower:    dx = -CORRECTION_PX
+            if "right" in correction_lower:   dx = CORRECTION_PX
+            if "up" in correction_lower:      dy = -CORRECTION_PX
+            if "down" in correction_lower:    dy = CORRECTION_PX
+            if "closer" in correction_lower:  dy = -CORRECTION_PX  # 카메라에 가깝게 = y 감소
+            if "farther" in correction_lower: dy = CORRECTION_PX
+
+            if current_task["task"] == "pick":
+                new_x = max(0, min(W-1, pick_ee[0] + dx))
+                new_y = max(0, min(H-1, pick_ee[1] + dy))
+                print(f"\n  [Recovery] PICK EE 보정: {pick_ee} → ({new_x}, {new_y})")
+                print(f"    reason: {failure_reason}, correction: {correction} → dx={dx}, dy={dy}")
+                pick_ee = (new_x, new_y)
+                pick_depth_mm, pick_depth_str = depth_lookup(depth_np, *pick_ee, H, W)
+            elif current_task["task"] == "place" and place_ee:
+                new_x = max(0, min(W-1, place_ee[0] + dx))
+                new_y = max(0, min(H-1, place_ee[1] + dy))
+                print(f"\n  [Recovery] PLACE EE 보정: {place_ee} → ({new_x}, {new_y})")
+                print(f"    reason: {failure_reason}, correction: {correction} → dx={dx}, dy={dy}")
+                place_ee = (new_x, new_y)
+                _, place_depth_str = depth_lookup(depth_np, *place_ee, H, W)
+
+    elif failure_reason == "grip_fail":
+        print(f"\n  [Recovery] 그리퍼 보정 필요: {correction}")
+        # 실제 로봇에서 grip force 조절
+
+    elif failure_reason == "wrong_object":
+        print(f"\n  [Recovery] 잘못된 객체 — 재식별 필요: {correction}")
+        # 다음 시도에서 GPT-4o가 다시 식별
+
+    elif failure_reason:
+        print(f"\n  [Recovery] 실패 원인: {failure_reason}, 보정: {correction}")
 
 print(f"\n[결과]")
 print(f"  PICK  EE: {pick_ee}  depth: {pick_depth_str}")
