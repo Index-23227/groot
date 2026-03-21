@@ -36,7 +36,7 @@ DEVICE     = "cuda" if torch.cuda.is_available() else "cpu"
 OPENAI_KEY = next(l.strip() for l in (ROOT/"token").read_text().splitlines()
                   if l.strip().startswith("sk-"))
 
-INSTRUCTION = "빨간 원기둥을 파란 원기둥 옆에 놓아라"
+INSTRUCTION = "파란색 캔을 초록색 캔 옆에 놓아라"
 
 SCENE_OBJECTS = [
     "파란 에너지드링크 캔 (Monster Energy, 키 큰 원통)",
@@ -101,10 +101,17 @@ def identify_cot_with_crops(client, crops, instruction, scene_objects):
       - place 위치 참조 객체 식별 + 배치 위치
       - action sequence 생성
     """
-    obj_list = "\n".join(f"  {i+1}. {o}" for i, o in enumerate(scene_objects))
+    if scene_objects:
+        obj_list = "\n".join(f"  {i+1}. {o}" for i, o in enumerate(scene_objects))
+        scene_desc = (
+            f"현재 테이블 위에 {len(scene_objects)}개의 객체가 있습니다:\n"
+            f"{obj_list}\n\n"
+        )
+    else:
+        scene_desc = ""
+
     prompt = (
-        f"현재 테이블 위에 {len(scene_objects)}개의 객체가 있습니다:\n"
-        f"{obj_list}\n\n"
+        f"{scene_desc}"
         f"지시: {instruction}\n\n"
         f"아래 {len(crops)}개 이미지는 각각 씬에서 분리된 개별 객체입니다.\n"
         "배경은 흰색으로 처리되어 있고, 객체만 보입니다.\n\n"
@@ -342,7 +349,7 @@ img_crops = draw_crop_grid(masks, crops)
 client = OpenAI(api_key=OPENAI_KEY)
 print(f"\n[Step 2] GPT-4o CoT ({len(crops)}개 crops)...")
 t2 = time.time()
-cot_res = identify_cot_with_crops(client, crops, INSTRUCTION, SCENE_OBJECTS)
+cot_res = identify_cot_with_crops(client, crops, INSTRUCTION, scene_objects=None)
 t2 = time.time() - t2
 
 # ── pick 객체 ────────────────────────────────────────────────

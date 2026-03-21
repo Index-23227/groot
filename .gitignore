@@ -13,3 +13,5 @@ wandb/
 *.env
 token
 token.*
+results/
+.git-credentials
