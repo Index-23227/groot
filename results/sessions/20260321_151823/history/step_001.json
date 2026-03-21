@@ -1,0 +1,18 @@
+{
+  "step_index": 0,
+  "task": {
+    "task": "pick",
+    "target": "yellow cylinder"
+  },
+  "success": true,
+  "timestamp": "2026-03-21T15:18:40.153656",
+  "ee_pick": [
+    911,
+    240
+  ],
+  "ee_place": null,
+  "details": {
+    "pick_index": 12,
+    "depth_mm": "1563mm"
+  }
+}

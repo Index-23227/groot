@@ -1,0 +1,18 @@
+{
+  "session_id": "20260321_151823",
+  "instruction": "Place the yellow cylinder on top of the red cylinder",
+  "tasks": [
+    {
+      "task": "pick",
+      "target": "yellow cylinder"
+    },
+    {
+      "task": "place",
+      "target": "red cylinder",
+      "relation": "on_top"
+    }
+  ],
+  "rationale": "The instruction requires moving the yellow cylinder to a position on top of the red cylinder. This involves first picking up the yellow cylinder and then placing it on top of the red cylinder, which serves as the reference object for the placement.",
+  "created_at": "2026-03-21T15:18:23.169915",
+  "total_steps": 2
+}

@@ -1,0 +1,21 @@
+{
+  "step_index": 0,
+  "task": {
+    "task": "pick",
+    "target": "yellow cylinder"
+  },
+  "success": false,
+  "timestamp": "2026-03-21T15:18:28.886795",
+  "ee_pick": [
+    911,
+    240
+  ],
+  "ee_place": null,
+  "details": {
+    "pick_index": 12,
+    "depth_mm": "1563mm"
+  },
+  "verified": true,
+  "verify_rationale": "The yellow cylinder is still visible at its original position on the table in the 'AFTER' image, indicating that the robot did not successfully pick it up.",
+  "verify_confidence": 0.95
+}
