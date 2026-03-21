@@ -10,6 +10,7 @@ import sys, io, base64, time, pickle, os, json
 import numpy as np
 import cv2
 from pathlib import Path
+from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 
 os.environ["QT_QPA_PLATFORM"] = "xcb"
@@ -20,6 +21,9 @@ from sam2.automatic_mask_generator import SAM2AutomaticMaskGenerator
 from openai import OpenAI
 import pyrealsense2 as rs
 import subprocess
+import pyaudio
+import wave
+from faster_whisper import WhisperModel
 
 # === 경로 ===
 ROOT = Path(__file__).parent / "groot"
@@ -59,6 +63,64 @@ robot_points = np.array([
     [350.0, 80.0, 160.0], [550.0, -100.0, 160.0],
     [350.0, 80.0, 150.0], [550.0, -100.0, 150.0],
 ], dtype=np.float64)
+
+# === WAV 저장 경로 ===
+WAV_DIR = Path(__file__).parent / "wav_files"
+WAV_DIR.mkdir(parents=True, exist_ok=True)
+
+# === 음성 녹음 & STT ===
+AUDIO_RATE = 16000
+AUDIO_CHANNELS = 1
+AUDIO_FORMAT = pyaudio.paInt16
+AUDIO_CHUNK = 1024
+
+
+def record_audio():
+    """Enter를 누르면 녹음 시작, 다시 Enter를 누르면 녹음 종료. WAV 파일 경로 반환."""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    wav_path = WAV_DIR / f"{timestamp}.wav"
+
+    pa = pyaudio.PyAudio()
+    stream = pa.open(format=AUDIO_FORMAT, channels=AUDIO_CHANNELS,
+                     rate=AUDIO_RATE, input=True, frames_per_buffer=AUDIO_CHUNK)
+
+    print("  🎙  녹음 중... (Enter를 누르면 종료)")
+    frames = []
+
+    import threading
+    stop_flag = threading.Event()
+
+    def wait_enter():
+        input()
+        stop_flag.set()
+
+    t = threading.Thread(target=wait_enter, daemon=True)
+    t.start()
+
+    while not stop_flag.is_set():
+        data = stream.read(AUDIO_CHUNK, exception_on_overflow=False)
+        frames.append(data)
+
+    stream.stop_stream()
+    stream.close()
+    pa.terminate()
+
+    with wave.open(str(wav_path), "wb") as wf:
+        wf.setnchannels(AUDIO_CHANNELS)
+        wf.setsampwidth(pa.get_sample_size(AUDIO_FORMAT))
+        wf.setframerate(AUDIO_RATE)
+        wf.writeframes(b"".join(frames))
+
+    print(f"  녹음 저장: {wav_path}")
+    return str(wav_path)
+
+
+def transcribe_audio(whisper_model, wav_path):
+    """WAV 파일을 텍스트로 변환 (stt_basic 설정: language=ko, beam_size=5)."""
+    segments, info = whisper_model.transcribe(wav_path, language="ko", beam_size=5)
+    text = " ".join(seg.text.strip() for seg in segments)
+    return text
+
 
 # === 설정 ===
 CAN_Z_THRESHOLD = 180
@@ -263,6 +325,12 @@ print(f"SAM2 로드 완료 ({time.time()-t_load:.1f}s)")
 # OpenAI 클라이언트
 client = OpenAI()
 
+# STT 모델 로드 (stt_basic: large-v3, ko, beam_size=5)
+print("\nSTT 모델 로딩 (large-v3)...")
+t_stt_load = time.time()
+whisper_model = WhisperModel("large-v3", device="cuda", compute_type="float16")
+print(f"STT 모델 로드 완료 ({time.time()-t_stt_load:.1f}s)")
+
 # 리얼센스 카메라
 pipeline = rs.pipeline()
 config = rs.config()
@@ -275,17 +343,30 @@ for _ in range(30):
     pipeline.wait_for_frames()
 
 print("\n카메라 준비 완료!")
-print("명령어를 입력하세요 (q=종료):")
-print("  예: 파란색 캔을 초록색 캔 옆에 놓아라\n")
+print("Enter를 누르면 음성 녹음 시작, 다시 Enter를 누르면 녹음 종료")
+print("'q' 입력 후 Enter로 종료")
+print("  예: \"파란색 캔을 초록색 캔 옆에 놓아라\"\n")
 
 cycle_count = 0
 
 try:
     while True:
-        instruction = input("\n명령> ").strip()
-        if instruction.lower() == 'q':
+        cmd = input("\n[Enter]로 음성 녹음 시작 (q=종료)> ").strip()
+        if cmd.lower() == 'q':
             break
-        if not instruction:
+
+        # 음성 녹음
+        wav_path = record_audio()
+
+        # STT 변환
+        print("  STT 변환 중...")
+        t_stt = time.time()
+        instruction = transcribe_audio(whisper_model, wav_path)
+        print(f"  STT 완료 ({time.time()-t_stt:.1f}s)")
+        print(f"  📝 인식된 명령: \"{instruction}\"")
+
+        if not instruction.strip():
+            print("  음성 인식 실패! 다시 시도해주세요.")
             continue
 
         t_total = time.time()
