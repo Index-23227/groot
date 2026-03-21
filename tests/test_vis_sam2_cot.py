@@ -36,16 +36,16 @@ DEVICE     = "cuda" if torch.cuda.is_available() else "cpu"
 OPENAI_KEY = next(l.strip() for l in (ROOT/"token").read_text().splitlines()
                   if l.strip().startswith("sk-"))
 
-INSTRUCTION = "초록 작은 원기둥을 하얀 종이컵 안에 넣어줘"
+INSTRUCTION = "Place the yellow cylinder on top of the red cylinder"
 
 SCENE_OBJECTS = [
-    "파란 에너지드링크 캔 (Monster Energy, 키 큰 원통)",
-    "초록 음료 캔 (스프라이트 계열, 중간 크기)",
-    "갈색 음료 캔 (커피 계열, 중간 크기)",
-    "노란 원기둥 (작은 플라스틱/나무 원기둥)",
-    "초록 원기둥 (작은 플라스틱/나무 원기둥)",
-    "파란 원기둥 (작은 플라스틱/나무 원기둥)",
-    "빨간 원기둥 (작은 플라스틱/나무 원기둥)",
+    "Blue energy drink can (tall cylinder)",
+    "Green beverage can (medium size)",
+    "Brown beverage can (coffee, medium size)",
+    "Yellow cylinder (small plastic/wooden block)",
+    "Green cylinder (small plastic/wooden block)",
+    "Red cylinder (small plastic/wooden block)",
+    "White paper cup",
 ]
 
 try:
@@ -102,18 +102,18 @@ def decompose_task(client, instruction):
        {"task":"place","target":"종이컵","relation":"안에"}]
     """
     prompt = (
-        f"지시: {instruction}\n\n"
-        "이 지시를 로봇의 기본 동작(pick, place)으로 분해하세요.\n\n"
-        "규칙:\n"
-        "- pick: 집어야 할 객체\n"
-        "- place: 놓을 위치의 참조 객체 + 관계(안에/위에/옆에/앞에/뒤에)\n"
-        "- 참조 객체가 없으면 target을 null로\n\n"
-        '반드시 아래 JSON 형식으로만 답하세요:\n'
+        f"Instruction: {instruction}\n\n"
+        "Decompose this instruction into basic robot actions (pick, place).\n\n"
+        "Rules:\n"
+        "- pick: the object to grasp\n"
+        "- place: the reference object for placement + spatial relation (inside/on_top/beside/in_front/behind)\n"
+        "- If no reference object, set target to null\n\n"
+        'Respond ONLY in JSON format:\n'
         '{"tasks": [\n'
-        '  {"task": "pick", "target": "집을 객체"},\n'
-        '  {"task": "place", "target": "참조 객체", "relation": "안에"}\n'
+        '  {"task": "pick", "target": "object to pick"},\n'
+        '  {"task": "place", "target": "reference object", "relation": "inside"}\n'
         '],'
-        ' "rationale": "분해 근거"}'
+        ' "rationale": "reasoning for decomposition"}'
     )
     for attempt in range(3):
         try:
@@ -133,13 +133,23 @@ def decompose_task(client, instruction):
 
 
 # ── GPT-4o: 객체 식별 (pick 또는 place 각각) ─────────────────
-def identify_object(client, crops, target_description):
+def identify_object(client, crops, target_description, scene_objects=None):
     """crops 중에서 target_description에 해당하는 객체 번호를 식별"""
+    if scene_objects:
+        obj_list = "\n".join(f"  {i+1}. {o}" for i, o in enumerate(scene_objects))
+        scene_desc = (
+            f"There are {len(scene_objects)} objects on the table:\n"
+            f"{obj_list}\n\n"
+        )
+    else:
+        scene_desc = ""
+
     prompt = (
-        f"아래 {len(crops)}개 이미지는 각각 씬에서 분리된 개별 객체입니다.\n"
-        "배경은 흰색으로 처리되어 있고, 객체만 보입니다.\n\n"
-        f"다음 객체를 찾으세요: {target_description}\n\n"
-        '반드시 JSON으로만: {"index": 0, "description": "객체 설명", "rationale": "근거"}'
+        f"{scene_desc}"
+        f"Below are {len(crops)} images, each showing an individual object segmented from the scene.\n"
+        "Backgrounds are replaced with white. Only the object is visible.\n\n"
+        f"Find the following object: {target_description}\n\n"
+        'Respond ONLY in JSON: {"index": 0, "description": "object description", "rationale": "reasoning"}'
     )
     content = [{"type": "text", "text": prompt}]
     for i, c in enumerate(crops):
@@ -165,6 +175,126 @@ def identify_object(client, crops, target_description):
     return {}
 
 
+# ── Action Verification: 이전 action 성공 여부 판단 ───────────
+def verify_action(client, rgb_before, rgb_after, action_task, history_entry):
+    """
+    action 수행 전/후 이미지를 GPT-4o에 보내 성공 여부 판단.
+
+    Args:
+        rgb_before: action 수행 전 RGB 이미지 (numpy)
+        rgb_after: action 수행 후 RGB 이미지 (numpy)
+        action_task: {"task":"pick","target":"..."} or {"task":"place","target":"...","relation":"..."}
+        history_entry: 이전 history (ee 좌표 등)
+
+    Returns: {"success": bool, "rationale": "판단 근거", "confidence": float}
+    """
+    before_pil = Image.fromarray(rgb_before)
+    after_pil = Image.fromarray(rgb_after)
+
+    task_type = action_task["task"]
+    target = action_task.get("target", "")
+    relation = action_task.get("relation", "")
+
+    if task_type == "pick":
+        task_desc = f"Robot attempted to PICK '{target}' from the table."
+        criteria = (
+            "Success criteria:\n"
+            "- The target object should NO LONGER be visible at its original position\n"
+            "- The robot gripper should be holding the object (or object moved)\n"
+            "- If the object is still in the same position, the pick FAILED"
+        )
+    elif task_type == "place":
+        task_desc = f"Robot attempted to PLACE '{target}' with relation '{relation}'."
+        ref = action_task.get("target", "")
+        criteria = (
+            f"Success criteria:\n"
+            f"- The picked object should now be {relation} the reference object '{ref}'\n"
+            f"- If the object is not at the expected position, the place FAILED\n"
+            f"- If the object fell or is in a wrong position, the place FAILED"
+        )
+    else:
+        task_desc = f"Robot attempted action: {action_task}"
+        criteria = "Determine if the action was successful based on visual changes."
+
+    prompt = (
+        f"You are evaluating whether a robot action was successful.\n\n"
+        f"Action: {task_desc}\n\n"
+        f"{criteria}\n\n"
+        f"Image 1 (BEFORE): The scene before the action.\n"
+        f"Image 2 (AFTER): The scene after the action.\n\n"
+        f"Compare the two images and determine if the action succeeded.\n\n"
+        'Respond ONLY in JSON:\n'
+        '{"success": true, "rationale": "detailed reasoning", "confidence": 0.9}'
+    )
+
+    content = [
+        {"type": "text", "text": prompt},
+        {"type": "text", "text": "[BEFORE]"},
+        {"type": "image_url",
+         "image_url": {"url": f"data:image/jpeg;base64,{_to_b64(before_pil, max_side=1024)}"}},
+        {"type": "text", "text": "[AFTER]"},
+        {"type": "image_url",
+         "image_url": {"url": f"data:image/jpeg;base64,{_to_b64(after_pil, max_side=1024)}"}},
+    ]
+
+    for attempt in range(3):
+        try:
+            r = client.chat.completions.create(
+                model="gpt-4o", temperature=0.1, max_tokens=300,
+                response_format={"type": "json_object"},
+                messages=[{"role": "user", "content": content}],
+            )
+            raw = r.choices[0].message.content
+            s, e = raw.find("{"), raw.rfind("}")+1
+            return json.loads(raw[s:e]) if s >= 0 and e > 0 else {"success": False, "rationale": "parse error"}
+        except Exception as ex:
+            wait = 15 if "429" in str(ex) else 8
+            print(f"    retry {attempt+1}/3 ({wait}s)")
+            time.sleep(wait)
+    return {"success": False, "rationale": "API failed"}
+
+
+def verify_from_history(client, rgb_current, session_id, tm):
+    """
+    최근 history의 action이 성공했는지 현재 이미지로 검증.
+    before 이미지가 없으면 현재 이미지만으로 판단.
+    """
+    latest = tm.get_latest_history(session_id)
+    if latest is None:
+        return None  # history 없음 → 검증 불필요
+
+    if latest.get("verified") is not None:
+        return latest  # 이미 검증됨
+
+    task = latest["task"]
+    task_type = task["task"]
+    target = task.get("target", "")
+
+    # before 이미지: 세션 폴더에 저장된 이전 이미지
+    session_path = tm.session_dir / session_id
+    before_path = session_path / f"scene_before_step{latest['step_index']}.jpg"
+
+    if before_path.exists():
+        rgb_before = np.array(Image.open(before_path).convert("RGB"))
+    else:
+        # before 없으면 현재 이미지로 단일 이미지 검증
+        rgb_before = rgb_current
+
+    print(f"\n  [Verify] step {latest['step_index']} ({task_type}, {target}) 검증 중...")
+    result = verify_action(client, rgb_before, rgb_current, task, latest)
+    success = result.get("success", False)
+    status = "SUCCESS" if success else "FAILED"
+    print(f"    결과: {status}  conf={result.get('confidence','')}")
+    print(f"    rationale: {result.get('rationale','')}")
+
+    return {
+        "verified": True,
+        "success": success,
+        "rationale": result.get("rationale", ""),
+        "confidence": result.get("confidence", 0),
+    }
+
+
 # ── (레거시) GPT-4o CoT 통합 호출 — 하위 호환용 ──────────────
 def identify_cot_with_crops(client, crops, instruction, scene_objects):
     """
@@ -177,7 +307,7 @@ def identify_cot_with_crops(client, crops, instruction, scene_objects):
     if scene_objects:
         obj_list = "\n".join(f"  {i+1}. {o}" for i, o in enumerate(scene_objects))
         scene_desc = (
-            f"현재 테이블 위에 {len(scene_objects)}개의 객체가 있습니다:\n"
+            f"There are {len(scene_objects)} objects on the table:\n"
             f"{obj_list}\n\n"
         )
     else:
@@ -185,44 +315,38 @@ def identify_cot_with_crops(client, crops, instruction, scene_objects):
 
     prompt = (
         f"{scene_desc}"
-        f"지시: {instruction}\n\n"
-        f"아래 {len(crops)}개 이미지는 각각 씬에서 분리된 개별 객체입니다.\n"
-        "배경은 흰색으로 처리되어 있고, 객체만 보입니다.\n\n"
-        "이 지시는 pick-and-place 태스크입니다.\n"
-        "단계별(Chain-of-Thought)로 추론하세요:\n\n"
-        "Step 1. PICK 대상: 지시에서 집어야 할 객체의 번호(0-based)를 식별하세요.\n"
-        "Step 2. PICK 윗면: 해당 crop에서 객체의 윗면(top surface)의 중심점을 찾으세요.\n"
-        "        crop 내 윗면 중심점 좌표를 구하세요 (normalized 0~1).\n"
-        "        - 캔이면 뚜껑 면의 중심, 원기둥이면 상단 원형 면의 중심\n"
-        "        - 카메라가 측면+위 약 45도 각도임을 고려\n"
-        "        - 윗면의 정중앙이 End-Effector가 접근할 위치임\n"
-        "Step 3. PLACE 참조: 지시에서 놓을 위치의 참조 객체 번호(0-based)를 식별하세요.\n"
-        "        참조 객체가 없으면(예: '테이블 위에 놓아라') null로 하세요.\n"
-        "Step 4. PLACE 위치: 참조 객체의 crop에서 놓을 위치를 추론하세요.\n"
-        "        - '옆에' → 참조 객체 오른쪽 또는 왼쪽\n"
-        "        - '위에' → 참조 객체 윗면 위\n"
-        "        - '앞에/뒤에' → 카메라 기준 앞/뒤\n"
-        "        - 중요: 참조 객체와 충분한 간격을 두세요. 너무 가까우면 충돌합니다.\n"
-        "          참조 객체 크기의 1.5~2배 정도 떨어진 위치가 적절합니다.\n"
-        "        참조 crop 내 normalized 좌표 (0~1)로 답하세요.\n"
-        "        crop 밖(0 미만 또는 1 초과)도 가능합니다.\n"
-        "Step 5. ACTION: 로봇이 수행할 action sequence를 생성하세요.\n\n"
-        "반드시 아래 JSON 형식으로만 답하세요.\n"
-        "각 step마다 rationale(판단 근거)을 반드시 포함하세요:\n"
+        f"Instruction: {instruction}\n\n"
+        f"Below are {len(crops)} images, each showing an individual object segmented from the scene.\n"
+        "Backgrounds are replaced with white. Only the object is visible.\n\n"
+        "This is a pick-and-place task.\n"
+        "Reason step by step (Chain-of-Thought):\n\n"
+        "Step 1. PICK target: Identify the object index (0-based) to pick.\n"
+        "Step 2. PICK top surface: Find the center of the top surface in the crop (normalized 0~1).\n"
+        "        - For cans: center of the lid. For cylinders: center of the top circle.\n"
+        "        - Camera is at ~45 degrees (side + top view)\n"
+        "Step 3. PLACE reference: Identify the reference object index (0-based). null if none.\n"
+        "Step 4. PLACE position: Determine where to place relative to the reference (normalized 0~1).\n"
+        "        - beside → next to the reference, keep safe distance (1.5~2x object size)\n"
+        "        - on_top → on top of the reference\n"
+        "        - inside → inside the reference\n"
+        "        Values outside 0~1 are allowed.\n"
+        "Step 5. ACTION: Generate the robot action sequence.\n\n"
+        "Respond ONLY in JSON format.\n"
+        "Include rationale for each step:\n"
         '{"step1_pick_index": 0,'
-        ' "step1_pick_description": "집을 객체 설명",'
-        ' "step1_rationale": "왜 이 객체를 선택했는지 근거",'
+        ' "step1_pick_description": "object description",'
+        ' "step1_rationale": "why this object",'
         ' "step2_pick_top_center": {"u": 0.5, "v": 0.3},'
-        ' "step2_pick_surface": "윗면 설명",'
-        ' "step2_rationale": "윗면을 어떻게 판단했는지, 중심점을 어떻게 결정했는지",'
+        ' "step2_pick_surface": "top surface description",'
+        ' "step2_rationale": "how top surface center was determined",'
         ' "step3_place_ref_index": 1,'
-        ' "step3_place_ref_description": "참조 객체 설명",'
-        ' "step3_rationale": "왜 이 객체가 place 참조인지 근거",'
+        ' "step3_place_ref_description": "reference object description",'
+        ' "step3_rationale": "why this is the place reference",'
         ' "step4_place_position": {"u": 0.5, "v": 0.5},'
-        ' "step4_place_relation": "옆에/위에/앞에 등",'
-        ' "step4_rationale": "place 위치를 어떻게 결정했는지 근거",'
+        ' "step4_place_relation": "beside/on_top/inside",'
+        ' "step4_rationale": "how place position was determined",'
         ' "step5_actions": ["move_to_pick", "grasp", "lift", "move_to_place", "release"],'
-        ' "step5_rationale": "action sequence 구성 근거",'
+        ' "step5_rationale": "action sequence reasoning",'
         ' "confidence": 0.9}'
     )
     content = [{"type": "text", "text": prompt}]
@@ -363,24 +487,28 @@ if DEPTH_PATH.exists():
     print(f"Depth: {d_vals.min():.0f}~{d_vals.max():.0f}mm  median={np.median(d_vals):.0f}mm")
 
 # ── ROI: 좌/중/우 3등분 → 가운데만 ────────────────────────────
-ROI_X1 = W // 3 - int(W * 0.10)
-ROI_X2 = 2 * W // 3 + int(W * 0.10)
-ROI = (ROI_X1, 0, ROI_X2, H)
-print(f"ROI (가운데 1/3): x={ROI_X1}~{ROI_X2}  ({ROI_X2-ROI_X1}x{H}px)")
+ROI_X1 = W // 3 - int(W * 0.05)
+ROI_X2 = 2 * W // 3 + int(W * 0.05)
+ROI_Y1 = int(H * 0.10)
+ROI_Y2 = 2 * H // 3
+ROI = (ROI_X1, ROI_Y1, ROI_X2, ROI_Y2)
+print(f"ROI: x={ROI_X1}~{ROI_X2}, y={ROI_Y1}~{ROI_Y2}  ({ROI_X2-ROI_X1}x{ROI_Y2-ROI_Y1}px)")
 
 # ── Step 0: 원본 이미지 + ROI 표시 ───────────────────────────
 img_s0_pil = Image.fromarray(rgb_np).convert("RGBA")
 overlay = Image.new("RGBA", img_s0_pil.size, (0,0,0,0))
 od = ImageDraw.Draw(overlay)
-od.rectangle([0, 0, ROI_X1, H], fill=(0,0,0,120))
-od.rectangle([ROI_X2, 0, W, H], fill=(0,0,0,120))
+od.rectangle([0, 0, W, ROI_Y1], fill=(0,0,0,120))
+od.rectangle([0, ROI_Y1, ROI_X1, ROI_Y2], fill=(0,0,0,120))
+od.rectangle([ROI_X2, ROI_Y1, W, ROI_Y2], fill=(0,0,0,120))
+od.rectangle([0, ROI_Y2, W, H], fill=(0,0,0,120))
 img_s0 = Image.alpha_composite(img_s0_pil, overlay).convert("RGB")
 d0 = ImageDraw.Draw(img_s0)
-d0.rectangle([ROI_X1, 0, ROI_X2, H], outline=(0,200,255), width=3)
-d0.text((ROI_X1+8, 8), f"ROI: {ROI_X2-ROI_X1}x{H}px", fill=(0,200,255), font=FONT_MD)
+d0.rectangle([ROI_X1, ROI_Y1, ROI_X2, ROI_Y2], outline=(0,200,255), width=3)
+d0.text((ROI_X1+8, ROI_Y1+8), f"ROI: {ROI_X2-ROI_X1}x{ROI_Y2-ROI_Y1}px", fill=(0,200,255), font=FONT_MD)
 
 # ── Step 1: SAM2 blind segmentation (가운데 ROI만) ───────────
-roi_rgb = rgb_np[:, ROI_X1:ROI_X2]
+roi_rgb = rgb_np[ROI_Y1:ROI_Y2, ROI_X1:ROI_X2]
 cache_path = CACHE_DIR / "base25_roi_masks.pkl"
 print(f"\n[Step 1] SAM2-tiny segmentation (ROI)...")
 t1 = time.time()
@@ -399,16 +527,24 @@ else:
     )
     raw_masks = sorted(generator.generate(roi_rgb), key=lambda x: x["area"], reverse=True)
     # ROI 좌표 → 원본 좌표로 변환
+    roi_area = (ROI_X2 - ROI_X1) * (ROI_Y2 - ROI_Y1)
+    MAX_MASK_RATIO = 0.30  # ROI의 30% 이상 차지하는 마스크 제외
     masks = []
+    skipped = 0
     for m in raw_masks:
+        if m["area"] > roi_area * MAX_MASK_RATIO:
+            skipped += 1
+            continue
         seg_full = np.zeros((H, W), dtype=bool)
-        seg_full[:, ROI_X1:ROI_X2] = m["segmentation"]
+        seg_full[ROI_Y1:ROI_Y2, ROI_X1:ROI_X2] = m["segmentation"]
         bx, by, bw, bh = m["bbox"]
         masks.append({
             **m,
             "segmentation": seg_full,
-            "bbox": (bx + ROI_X1, by, bw, bh),
+            "bbox": (bx + ROI_X1, by + ROI_Y1, bw, bh),
         })
+    if skipped:
+        print(f"  큰 마스크 {skipped}개 제외 (>{MAX_MASK_RATIO*100:.0f}% of ROI)")
     cache_path.write_bytes(pickle.dumps(masks))
     print(f"  {len(masks)}개 마스크 → 캐시 저장")
 t1 = time.time() - t1
@@ -418,19 +554,86 @@ crops = [make_crop(rgb_np, m) for m in masks]
 img_s1 = draw_sam2_overlay(rgb_np, masks)
 img_crops = draw_crop_grid(masks, crops)
 
-# ── Step 2a: Task Decomposition ──────────────────────────────
-client = OpenAI(api_key=OPENAI_KEY)
-print(f"\n[Step 2a] Task Decomposition...")
-t2a = time.time()
-decomp = decompose_task(client, INSTRUCTION)
-t2a = time.time() - t2a
+# ── TaskManager 초기화 ───────────────────────────────────────
+from utils.task_manager import TaskManager
+tm = TaskManager(session_dir=str(ROOT / "results" / "sessions"))
 
-tasks_list = decomp.get("tasks", [])
-print(f"  분해 결과 ({t2a:.1f}s):")
-for t_item in tasks_list:
-    rel = f", {t_item.get('relation','')}" if t_item.get('relation') else ""
-    print(f"    ({t_item['task']}, {t_item.get('target','')}{rel})")
-print(f"  rationale: {decomp.get('rationale','')}")
+# ── Step 2a: Task Decomposition + 세션 관리 ──────────────────
+client = OpenAI(api_key=OPENAI_KEY)
+
+# 최근 세션 확인
+latest_session = tm.get_latest_session()
+session_id = None
+
+if latest_session:
+    status = tm.get_status(latest_session)
+    if status["instruction"] == INSTRUCTION:
+        if status["is_complete"]:
+            print(f"\n  세션 {latest_session} 이미 완료됨. 종료.")
+            sys.exit(0)
+        else:
+            # 동일 instruction의 미완료 세션 → 이어서 실행
+            session_id = latest_session
+            tasks_list = tm.load_session(session_id)["tasks"]
+            print(f"\n[Step 2a] 기존 세션 이어서 실행: {session_id}")
+            print(f"  진행: {status['completed_steps']}/{status['total_steps']} steps")
+
+t2a = 0
+if session_id is None:
+    # 새 세션: task decomposition
+    print(f"\n[Step 2a] Task Decomposition...")
+    t2a = time.time()
+    decomp = decompose_task(client, INSTRUCTION)
+    t2a = time.time() - t2a
+
+    tasks_list = decomp.get("tasks", [])
+    print(f"  분해 결과 ({t2a:.1f}s):")
+    for t_item in tasks_list:
+        rel = f", {t_item.get('relation','')}" if t_item.get('relation') else ""
+        print(f"    ({t_item['task']}, {t_item.get('target','')}{rel})")
+    print(f"  rationale: {decomp.get('rationale','')}")
+
+    session_id = tm.new_session(INSTRUCTION, tasks_list, decomp.get("rationale", ""))
+
+# ── 이전 action 검증 (history가 있고 아직 미검증인 경우) ─────
+latest_hist = tm.get_latest_history(session_id)
+verification_result = None
+
+if latest_hist and not latest_hist.get("verified"):
+    # 현재 이미지로 이전 action 성공 여부 검증
+    verify_res = verify_from_history(client, rgb_np, session_id, tm)
+    if verify_res:
+        verification_result = verify_res
+        # history 파일 업데이트 (verified 필드 추가)
+        hist_dir = tm.session_dir / session_id / "history"
+        hist_files = sorted(hist_dir.glob("step_*.json"))
+        if hist_files:
+            last_file = hist_files[-1]
+            entry = json.loads(last_file.read_text(encoding="utf-8"))
+            entry["verified"] = True
+            entry["success"] = verify_res["success"]
+            entry["verify_rationale"] = verify_res.get("rationale", "")
+            entry["verify_confidence"] = verify_res.get("confidence", 0)
+            last_file.write_text(json.dumps(entry, indent=2, ensure_ascii=False), encoding="utf-8")
+            status_str = "SUCCESS" if verify_res["success"] else "FAILED"
+            print(f"    history 업데이트: {status_str}")
+
+# 다음 실행할 action 결정
+next_action = tm.get_next_action(session_id)
+if next_action is None:
+    print("\n  모든 action 완료!")
+    sys.exit(0)
+
+# action 수행 전 이미지 저장 (다음 실행 시 verification 비교용)
+session_path = tm.session_dir / session_id
+Image.fromarray(rgb_np).save(session_path / f"scene_before_step{next_action['step_index']}.jpg", quality=90)
+
+current_step = next_action["step_index"]
+current_task = next_action["task"]
+is_retry = next_action["is_retry"]
+retry_str = " (RETRY)" if is_retry else ""
+rel = f", {current_task.get('relation','')}" if current_task.get('relation') else ""
+print(f"\n  현재 action: step {current_step} → ({current_task['task']}, {current_task.get('target','')}{rel}){retry_str}")
 
 # pick/place task 추출
 pick_task = next((t for t in tasks_list if t["task"] == "pick"), None)
@@ -443,7 +646,7 @@ if not pick_task:
 # ── Step 2b: 개별 객체 식별 ──────────────────────────────────
 print(f"\n[Step 2b] PICK 객체 식별: '{pick_task['target']}'...")
 t2b_pick = time.time()
-pick_res = identify_object(client, crops, pick_task["target"])
+pick_res = identify_object(client, crops, pick_task["target"], SCENE_OBJECTS)
 t2b_pick = time.time() - t2b_pick
 pick_idx = min(int(pick_res.get("index", 0)), len(masks)-1)
 pick_mask = masks[pick_idx]
@@ -460,7 +663,7 @@ place_tc = {}
 if place_task and place_task.get("target"):
     print(f"\n[Step 2c] PLACE 참조 식별: '{place_task['target']}'...")
     t2b_place = time.time()
-    place_res = identify_object(client, crops, place_task["target"])
+    place_res = identify_object(client, crops, place_task["target"], SCENE_OBJECTS)
     t2b_place = time.time() - t2b_place
     place_ref_idx = min(int(place_res.get("index", 0)), len(masks)-1)
     place_mask = masks[place_ref_idx]
@@ -485,7 +688,7 @@ cot_res = {
     "step4_place_position": place_tc,
     "step5_actions": actions,
     "confidence": pick_res.get("confidence", 0.9),
-    "decomposition": decomp,
+    "decomposition": decomp if 'decomp' in dir() else {},
 }
 
 # ── crop 좌표 → 원본 좌표 변환 함수 ──────────────────────────
@@ -699,7 +902,7 @@ place_method = ""
 if place_mask is not None and place_crop is not None:
     relation = cot_res.get("step4_place_relation", "옆에")
 
-    if relation in ("위에", "안에"):
+    if relation in ("위에", "안에", "on_top", "inside"):
         # 위에/안에: pick과 동일한 윗면 중심 로직
         place_ee_result, place_depth_mm = compute_place_ee_on_top(place_mask, depth_np)
         if place_ee_result:
@@ -725,6 +928,46 @@ if place_mask is not None and place_crop is not None:
 print(f"\n[결과]")
 print(f"  PICK  EE: {pick_ee}  depth: {pick_depth_str}")
 print(f"  PLACE EE: {place_ee}  depth: {place_depth_str}")
+
+# ── History 업데이트 (현재 action만) ─────────────────────────
+# 시각화 테스트: 아직 로봇 미실행이므로 pending으로 기록
+# 다음 실행 시 verification에서 성공 여부 판단
+action_success = True  # 초기값 (다음 실행 시 verify_from_history로 검증)
+
+details = {}
+ee_p = None
+ee_pl = None
+if current_task["task"] == "pick":
+    ee_p = pick_ee
+    details = {"pick_index": pick_idx, "depth_mm": pick_depth_str}
+elif current_task["task"] == "place":
+    ee_pl = place_ee
+    details = {"place_ref_index": place_ref_idx, "relation": place_relation,
+                "depth_mm": place_depth_str, "place_method": place_method}
+
+tm.update_history(session_id, current_step, current_task,
+                  success=action_success, ee_pick=ee_p, ee_place=ee_pl,
+                  details=details)
+
+# 세션 완료 체크
+if tm.is_session_complete(session_id):
+    print(f"\n{'='*55}")
+    print(f"  ALL STEPS COMPLETE — session {session_id}")
+    print(f"  {INSTRUCTION}")
+    print(f"{'='*55}")
+else:
+    next_action = tm.get_next_action(session_id)
+    if next_action:
+        rel = f", {next_action['task'].get('relation','')}" if next_action['task'].get('relation') else ""
+        print(f"\n  다음 action: step {next_action['step_index']} → "
+              f"({next_action['task']['task']}, {next_action['task'].get('target','')}{rel})")
+        print(f"  다시 실행하면 이 action이 수행됩니다.")
+
+# 세션 상태 출력
+status = tm.get_status(session_id)
+print(f"\n[Session] {session_id}")
+print(f"  진행: {status['completed_steps']}/{status['total_steps']} steps")
+print(f"  완료: {'Yes' if status['is_complete'] else 'No'}")
 
 # ── 시각화: pick & place 표시 ────────────────────────────────
 # SAM2 오버레이 (pick=초록, place=파란)
@@ -857,7 +1100,7 @@ html = f"""<!DOCTYPE html>
             ("시간", f"{t2a:.1f}s", "#444")],
     rows=[(f"Task {i+1}", f"({t_item['task']}, {t_item.get('target','')}" + (f", {t_item['relation']}" if t_item.get('relation') else "") + ")")
           for i, t_item in enumerate(tasks_list)]
-         + [("rationale", decomp.get('rationale',''))],
+         + [("rationale", decomp.get('rationale','') if 'decomp' in dir() else tm.load_session(session_id).get('rationale',''))],
     note="자연어 명령 → (task, target, relation) 리스트로 분해. LLM 1회 호출.",
     color="#4a235a")}
 
