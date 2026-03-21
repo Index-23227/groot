@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Player</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 2rem;
+            color: #e94560;
+        }
+
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(560px, 1fr));
+            gap: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .video-card {
+            background: #16213e;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s;
+        }
+
+        .video-card:hover {
+            transform: translateY(-4px);
+        }
+
+        .video-card video {
+            width: 100%;
+            display: block;
+            background: #000;
+        }
+
+        .video-info {
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .video-info .title {
+            font-size: 0.95rem;
+            color: #a0a0b8;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .video-info .index {
+            font-size: 0.85rem;
+            color: #e94560;
+            font-weight: bold;
+            flex-shrink: 0;
+            margin-left: 12px;
+        }
+
+        @media (max-width: 640px) {
+            .video-grid {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 1.4rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Video Player</h1>
+    <div class="video-grid">
+        <div class="video-card">
+            <video controls preload="metadata">
+                <source src="KakaoTalk_20260321_185436472.mp4" type="video/mp4">
+            </video>
+            <div class="video-info">
+                <span class="title">KakaoTalk_20260321_185436472.mp4</span>
+                <span class="index">#1</span>
+            </div>
+        </div>
+        <div class="video-card">
+            <video controls preload="metadata">
+                <source src="KakaoTalk_20260321_185522602.mp4" type="video/mp4">
+            </video>
+            <div class="video-info">
+                <span class="title">KakaoTalk_20260321_185522602.mp4</span>
+                <span class="index">#2</span>
+            </div>
+        </div>
+        <div class="video-card">
+            <video controls preload="metadata">
+                <source src="KakaoTalk_20260321_185613071.mp4" type="video/mp4">
+            </video>
+            <div class="video-info">
+                <span class="title">KakaoTalk_20260321_185613071.mp4</span>
+                <span class="index">#3</span>
+            </div>
+        </div>
+        <div class="video-card">
+            <video controls preload="metadata">
+                <source src="KakaoTalk_20260321_185658348.mp4" type="video/mp4">
+            </video>
+            <div class="video-info">
+                <span class="title">KakaoTalk_20260321_185658348.mp4</span>
+                <span class="index">#4</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
