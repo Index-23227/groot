@@ -36,7 +36,7 @@ DEVICE     = "cuda" if torch.cuda.is_available() else "cpu"
 OPENAI_KEY = next(l.strip() for l in (ROOT/"token").read_text().splitlines()
                   if l.strip().startswith("sk-"))
 
-INSTRUCTION = "노란 원기둥을 집어라"
+INSTRUCTION = "빨간 원기둥을 파란 원기둥 옆에 놓아라"
 
 SCENE_OBJECTS = [
     "파란 에너지드링크 캔 (Monster Energy, 키 큰 원통)",
@@ -92,14 +92,14 @@ def make_crop(image, mask_data, padding=12):
     return Image.fromarray(arr).convert("RGB").crop((x1, y1, x2, y2))
 
 
-# ── GPT-4o CoT (crops 기반) ──────────────────────────────────
+# ── GPT-4o CoT (crops 기반, pick & place 대응) ───────────────
 def identify_cot_with_crops(client, crops, instruction, scene_objects):
     """
-    SAM2 crops를 GPT-4o에 전달 → CoT로 타겟 식별 + 윗면 중심점.
-
-    Returns:
-      {target_index, step1_target, top_center_crop_norm {u, v},
-       confidence, reason}
+    SAM2 crops → GPT-4o CoT.
+    pick & place 지시를 파싱하여:
+      - pick 대상 객체 식별 + 윗면 중심점
+      - place 위치 참조 객체 식별 + 배치 위치
+      - action sequence 생성
     """
     obj_list = "\n".join(f"  {i+1}. {o}" for i, o in enumerate(scene_objects))
     prompt = (
@@ -108,23 +108,42 @@ def identify_cot_with_crops(client, crops, instruction, scene_objects):
         f"지시: {instruction}\n\n"
         f"아래 {len(crops)}개 이미지는 각각 씬에서 분리된 개별 객체입니다.\n"
         "배경은 흰색으로 처리되어 있고, 객체만 보입니다.\n\n"
+        "이 지시는 pick-and-place 태스크입니다.\n"
         "단계별(Chain-of-Thought)로 추론하세요:\n\n"
-        "Step 1. 지시에 해당하는 타겟 객체의 번호(0-based)를 식별하세요.\n"
-        "Step 2. 선택한 crop 이미지에서 타겟 객체의 전체 영역을 설명하세요.\n"
-        "Step 3. 타겟 객체의 윗면(top surface)을 찾으세요.\n"
-        "        - 원기둥이면 상단 원형/타원 면\n"
-        "        - 캔이면 뚜껑 면\n"
+        "Step 1. PICK 대상: 지시에서 집어야 할 객체의 번호(0-based)를 식별하세요.\n"
+        "Step 2. PICK 윗면: 해당 crop에서 객체의 윗면(top surface)의 중심점을 찾으세요.\n"
+        "        crop 내 윗면 중심점 좌표를 구하세요 (normalized 0~1).\n"
+        "        - 캔이면 뚜껑 면의 중심, 원기둥이면 상단 원형 면의 중심\n"
         "        - 카메라가 측면+위 약 45도 각도임을 고려\n"
-        "Step 4. crop 이미지 내에서 윗면의 중심점 좌표를 구하세요 (normalized 0~1).\n"
-        "        → 이것이 로봇 End-Effector가 접근할 타겟 위치입니다.\n\n"
-        "반드시 아래 JSON 형식으로만 답하세요:\n"
-        '{"target_index": 0,'
-        ' "step1_target": "타겟 객체 설명",'
-        ' "step2_description": "객체 전체 설명",'
-        ' "step3_top_surface": "윗면 설명",'
-        ' "step4_top_center_crop": {"u": 0.5, "v": 0.3},'
-        ' "confidence": 0.9,'
-        ' "reason": "추론 근거"}'
+        "        - 윗면의 정중앙이 End-Effector가 접근할 위치임\n"
+        "Step 3. PLACE 참조: 지시에서 놓을 위치의 참조 객체 번호(0-based)를 식별하세요.\n"
+        "        참조 객체가 없으면(예: '테이블 위에 놓아라') null로 하세요.\n"
+        "Step 4. PLACE 위치: 참조 객체의 crop에서 놓을 위치를 추론하세요.\n"
+        "        - '옆에' → 참조 객체 오른쪽 또는 왼쪽\n"
+        "        - '위에' → 참조 객체 윗면 위\n"
+        "        - '앞에/뒤에' → 카메라 기준 앞/뒤\n"
+        "        - 중요: 참조 객체와 충분한 간격을 두세요. 너무 가까우면 충돌합니다.\n"
+        "          참조 객체 크기의 1.5~2배 정도 떨어진 위치가 적절합니다.\n"
+        "        참조 crop 내 normalized 좌표 (0~1)로 답하세요.\n"
+        "        crop 밖(0 미만 또는 1 초과)도 가능합니다.\n"
+        "Step 5. ACTION: 로봇이 수행할 action sequence를 생성하세요.\n\n"
+        "반드시 아래 JSON 형식으로만 답하세요.\n"
+        "각 step마다 rationale(판단 근거)을 반드시 포함하세요:\n"
+        '{"step1_pick_index": 0,'
+        ' "step1_pick_description": "집을 객체 설명",'
+        ' "step1_rationale": "왜 이 객체를 선택했는지 근거",'
+        ' "step2_pick_top_center": {"u": 0.5, "v": 0.3},'
+        ' "step2_pick_surface": "윗면 설명",'
+        ' "step2_rationale": "윗면을 어떻게 판단했는지, 중심점을 어떻게 결정했는지",'
+        ' "step3_place_ref_index": 1,'
+        ' "step3_place_ref_description": "참조 객체 설명",'
+        ' "step3_rationale": "왜 이 객체가 place 참조인지 근거",'
+        ' "step4_place_position": {"u": 0.5, "v": 0.5},'
+        ' "step4_place_relation": "옆에/위에/앞에 등",'
+        ' "step4_rationale": "place 위치를 어떻게 결정했는지 근거",'
+        ' "step5_actions": ["move_to_pick", "grasp", "lift", "move_to_place", "release"],'
+        ' "step5_rationale": "action sequence 구성 근거",'
+        ' "confidence": 0.9}'
     )
     content = [{"type": "text", "text": prompt}]
     for i, c in enumerate(crops):
@@ -137,7 +156,7 @@ def identify_cot_with_crops(client, crops, instruction, scene_objects):
     for attempt in range(3):
         try:
             r = client.chat.completions.create(
-                model="gpt-4o", temperature=0.1, max_tokens=500,
+                model="gpt-4o", temperature=0.1, max_tokens=800,
                 response_format={"type": "json_object"},
                 messages=[{"role": "user", "content": content}],
             )
@@ -326,55 +345,217 @@ t2 = time.time()
 cot_res = identify_cot_with_crops(client, crops, INSTRUCTION, SCENE_OBJECTS)
 t2 = time.time() - t2
 
-target_idx = min(int(cot_res.get("target_index", 0)), len(masks)-1)
-target_mask = masks[target_idx]
-target_crop = crops[target_idx]
-print(f"  타겟: [{target_idx}번]  conf={cot_res.get('confidence')}")
-print(f"  Step1: {cot_res.get('step1_target','')}")
-print(f"  Step3: {cot_res.get('step3_top_surface','')}")
-tc = cot_res.get("step4_top_center_crop", {})
-print(f"  Step4 (crop norm): u={tc.get('u')}, v={tc.get('v')}")
-print(f"  완료 ({t2:.1f}s)")
+# ── pick 객체 ────────────────────────────────────────────────
+pick_idx = min(int(cot_res.get("step1_pick_index", 0)), len(masks)-1)
+pick_mask = masks[pick_idx]
+pick_crop = crops[pick_idx]
+pick_tc = cot_res.get("step2_pick_top_center", {})
 
-# 타겟 강조된 SAM2 오버레이
-img_s1_target = draw_sam2_overlay(rgb_np, masks, target_idx=target_idx)
+# ── place 참조 객체 ──────────────────────────────────────────
+place_ref_idx = cot_res.get("step3_place_ref_index")
+place_mask = None
+place_crop = None
+place_tc = cot_res.get("step4_place_position", {})
+if place_ref_idx is not None:
+    place_ref_idx = min(int(place_ref_idx), len(masks)-1)
+    place_mask = masks[place_ref_idx]
+    place_crop = crops[place_ref_idx]
 
-# crop 위에 CoT top_center 표시
-img_crop_cot = draw_cot_on_crop(target_crop, cot_res)
+actions = cot_res.get("step5_actions", [])
 
-# ── Step 3: crop 좌표 → 원본 좌표 변환 ──────────────────────
-# mask bbox + padding → crop 원점
-bx, by, bbw, bbh = [int(v) for v in target_mask["bbox"]]
-pad = 12
-crop_x1 = max(0, bx - pad)
-crop_y1 = max(0, by - pad)
-crop_w  = target_crop.width
-crop_h  = target_crop.height
+print(f"  PICK:  [{pick_idx}번] {cot_res.get('step1_pick_description','')}")
+print(f"    rationale: {cot_res.get('step1_rationale','')}")
+print(f"         윗면: {cot_res.get('step2_pick_surface','')}")
+print(f"         crop norm: u={pick_tc.get('u')}, v={pick_tc.get('v')}")
+print(f"    rationale: {cot_res.get('step2_rationale','')}")
+print(f"  PLACE: [{place_ref_idx}번] {cot_res.get('step3_place_ref_description','')}")
+print(f"    rationale: {cot_res.get('step3_rationale','')}")
+print(f"         관계: {cot_res.get('step4_place_relation','')}")
+print(f"         crop norm: u={place_tc.get('u')}, v={place_tc.get('v')}")
+print(f"    rationale: {cot_res.get('step4_rationale','')}")
+print(f"  ACTIONS: {actions}")
+print(f"    rationale: {cot_res.get('step5_rationale','')}")
+print(f"  conf={cot_res.get('confidence')}  ({t2:.1f}s)")
 
-u_crop = float(tc.get("u", 0.5))
-v_crop = float(tc.get("v", 0.5))
+# ── crop 좌표 → 원본 좌표 변환 함수 ──────────────────────────
+def crop_to_original(mask_data, crop_pil, u_norm, v_norm, padding=12):
+    bx, by, bw, bh = [int(v) for v in mask_data["bbox"]]
+    cx1 = max(0, bx - padding)
+    cy1 = max(0, by - padding)
+    ox = cx1 + int(u_norm * crop_pil.width)
+    oy = cy1 + int(v_norm * crop_pil.height)
+    return (ox, oy)
 
-# crop 내 좌표 → 원본 이미지 좌표
-ee_x = crop_x1 + int(u_crop * crop_w)
-ee_y = crop_y1 + int(v_crop * crop_h)
-ee_px = (ee_x, ee_y)
-u_n = ee_x / W
-v_n = ee_y / H
-
-# depth lookup
-depth_str = "N/A"
-depth_mm = None
-if depth_np is not None:
-    r = 5
-    patch = depth_np[max(0,ee_y-r):min(H,ee_y+r), max(0,ee_x-r):min(W,ee_x+r)]
+def depth_lookup(depth_np, px, py, H, W, r=5):
+    if depth_np is None:
+        return None, "N/A"
+    patch = depth_np[max(0,py-r):min(H,py+r), max(0,px-r):min(W,px+r)]
     valid = patch[patch > 0]
     if len(valid) > 0:
-        depth_mm = float(np.median(valid))
-        depth_str = f"{depth_mm:.0f}mm"
+        mm = float(np.median(valid))
+        return mm, f"{mm:.0f}mm"
+    return None, "N/A"
 
-print(f"\n[결과] EE pixel: ({ee_x}, {ee_y})  norm: ({u_n:.3f}, {v_n:.3f})  depth: {depth_str}")
+# PICK EE — depth 기반 윗면 centroid (VLM 없이 정확하게)
+def compute_top_surface_ee(mask_data, depth_np):
+    """
+    SAM2 mask 내에서 두 점의 중점으로 윗면 중심(EE)을 계산.
 
-img_s3 = draw_ee_on_image(rgb_np, ee_px, depth_str, cot_res, target_mask)
+    Point A: depth가 가장 작은 점 (카메라에 가장 가까운 = 윗면 앞쪽 가장자리)
+    Point B: y 픽셀이 가장 작은 점 (이미지 최상단 = 윗면 뒤쪽 가장자리)
+    EE = (A + B) / 2 = 윗면 중심
+
+    파라미터 없음, 기하학적으로 정확.
+    """
+    mask_seg = mask_data["segmentation"]
+    obj_bbox = [int(v) for v in mask_data["bbox"]]
+
+    ys, xs = np.where(mask_seg)
+    if len(ys) == 0:
+        return None, None, None, None, None
+    depths = depth_np[ys, xs]
+    valid = depths > 0
+    if valid.sum() == 0:
+        return None, None, None, None, None
+    ys, xs, depths = ys[valid], xs[valid], depths[valid]
+
+    # Point A: depth 최소점 (상위 5% centroid로 안정화)
+    d_min = depths.min()
+    d_range = depths.max() - d_min
+    near_th = d_min + max(d_range * 0.05, 3)
+    near = depths <= near_th
+    pt_a = (int(np.mean(xs[near])), int(np.mean(ys[near])))
+
+    # Point B: y 최소점 (상위 5% centroid로 안정화)
+    y_min = ys.min()
+    y_th = y_min + max((ys.max() - y_min) * 0.05, 3)
+    top_y = ys <= y_th
+    pt_b = (int(np.mean(xs[top_y])), int(np.mean(ys[top_y])))
+
+    # EE = 중점
+    ee_x = (pt_a[0] + pt_b[0]) // 2
+    ee_y = (pt_a[1] + pt_b[1]) // 2
+    depth_mm = float(depths[near].mean())
+
+    return (ee_x, ee_y), depth_mm, pt_a, pt_b, obj_bbox, {
+        "d_min": float(depths.min()),
+        "d_max": float(depths.max()),
+        "pt_a_depth": pt_a,
+        "pt_b_y_min": pt_b,
+    }
+
+print(f"\n  [Step 2b] 윗면 EE = midpoint(depth최소점, y최소점)...")
+pick_ee_result = compute_top_surface_ee(pick_mask, depth_np)
+top_result = None
+pt_a = pt_b = None
+obj_bbox_xywh = None
+
+if pick_ee_result[0] is not None:
+    pick_ee, pick_depth_mm, pt_a, pt_b, obj_bbox_xywh, top_info = pick_ee_result
+    pick_depth_str = f"{pick_depth_mm:.0f}mm"
+    top_result = top_info
+
+    ob_x, ob_y, ob_w, ob_h = obj_bbox_xywh
+    print(f"    SAM2 bbox: ({ob_x},{ob_y},{ob_w},{ob_h})")
+    print(f"    Point A (depth 최소): {pt_a}")
+    print(f"    Point B (y 최소):     {pt_b}")
+    print(f"    EE = midpoint:        {pick_ee}  depth: {pick_depth_str}")
+else:
+    pick_u = float(pick_tc.get("u", 0.5))
+    pick_v = float(pick_tc.get("v", 0.5))
+    pick_ee = crop_to_original(pick_mask, pick_crop, pick_u, pick_v)
+    pick_depth_mm, pick_depth_str = depth_lookup(depth_np, *pick_ee, H, W)
+    print(f"    [Fallback] depth 없음 → VLM crop norm")
+
+# 시각화: Point A + Point B + EE 중점
+if pt_a and pt_b and obj_bbox_xywh:
+    ob_x, ob_y, ob_w, ob_h = obj_bbox_xywh
+    pad_vis = 30
+    vx1 = max(0, ob_x - pad_vis)
+    vy1 = max(0, ob_y - pad_vis)
+    vx2 = min(W, ob_x + ob_w + pad_vis)
+    vy2 = min(H, ob_y + ob_h + pad_vis)
+    vis_crop = Image.fromarray(rgb_np[vy1:vy2, vx1:vx2]).convert("RGBA")
+    d_vc = ImageDraw.Draw(vis_crop)
+
+    # SAM2 bbox (파란)
+    d_vc.rectangle([ob_x-vx1, ob_y-vy1, ob_x+ob_w-vx1, ob_y+ob_h-vy1],
+                   outline=(100,180,255,200), width=2)
+    d_vc.text((ob_x-vx1+3, ob_y-vy1-18), "SAM2 bbox", fill=(100,180,255,255), font=FONT_SM)
+
+    # Point A (초록) — depth 최소
+    ax, ay = pt_a[0]-vx1, pt_a[1]-vy1
+    d_vc.ellipse([ax-6, ay-6, ax+6, ay+6], fill=(0,255,0,255))
+    d_vc.text((ax+8, ay-8), "A: depth min", fill=(0,255,0,255), font=FONT_SM)
+
+    # Point B (파란) — y 최소
+    bx, by = pt_b[0]-vx1, pt_b[1]-vy1
+    d_vc.ellipse([bx-6, by-6, bx+6, by+6], fill=(0,200,255,255))
+    d_vc.text((bx+8, by+8), "B: y min", fill=(0,200,255,255), font=FONT_SM)
+
+    # A-B 연결선 (점선 느낌)
+    d_vc.line([(ax,ay),(bx,by)], fill=(200,200,200,150), width=1)
+
+    # EE (빨간 십자) = 중점
+    lcx = pick_ee[0] - vx1
+    lcy = pick_ee[1] - vy1
+    d_vc.ellipse([lcx-10, lcy-10, lcx+10, lcy+10], outline=(255,50,50,255), width=3)
+    d_vc.line([(lcx-18,lcy),(lcx+18,lcy)], fill=(255,50,50,255), width=2)
+    d_vc.line([(lcx,lcy-18),(lcx,lcy+18)], fill=(255,50,50,255), width=2)
+    d_vc.text((lcx+12, lcy-12), "EE (midpoint)", fill=(255,100,100,255), font=FONT_SM)
+
+    img_top_crop_vis = vis_crop.convert("RGB")
+else:
+    img_top_crop_vis = pick_crop.copy()
+
+# PLACE EE
+place_ee = None
+place_depth_str = "N/A"
+if place_mask is not None and place_crop is not None:
+    place_u = float(place_tc.get("u", 0.5))
+    place_v = float(place_tc.get("v", 0.5))
+    place_ee = crop_to_original(place_mask, place_crop, place_u, place_v)
+    _, place_depth_str = depth_lookup(depth_np, *place_ee, H, W)
+
+print(f"\n[결과]")
+print(f"  PICK  EE: {pick_ee}  depth: {pick_depth_str}")
+print(f"  PLACE EE: {place_ee}  depth: {place_depth_str}")
+
+# ── 시각화: pick & place 표시 ────────────────────────────────
+# SAM2 오버레이 (pick=초록, place=파란)
+img_s1_target = draw_sam2_overlay(rgb_np, masks)
+img_pick_place = Image.fromarray(rgb_np).convert("RGBA")
+H_img, W_img = rgb_np.shape[:2]
+# pick mask 초록
+lyr = np.zeros((H_img, W_img, 4), dtype=np.uint8)
+lyr[pick_mask["segmentation"]] = [0, 220, 80, 180]
+img_pick_place = Image.alpha_composite(img_pick_place, Image.fromarray(lyr))
+# place mask 파란
+if place_mask is not None:
+    lyr2 = np.zeros((H_img, W_img, 4), dtype=np.uint8)
+    lyr2[place_mask["segmentation"]] = [80, 150, 255, 160]
+    img_pick_place = Image.alpha_composite(img_pick_place, Image.fromarray(lyr2))
+d_pp = ImageDraw.Draw(img_pick_place)
+# pick 크로스헤어 (빨간)
+cx, cy = pick_ee
+d_pp.ellipse([cx-16,cy-16,cx+16,cy+16], outline=(255,50,50,255), width=4)
+d_pp.line([(cx-30,cy),(cx+30,cy)], fill=(255,50,50,255), width=3)
+d_pp.line([(cx,cy-30),(cx,cy+30)], fill=(255,50,50,255), width=3)
+d_pp.text((cx+20, cy-20), f"PICK ({cx},{cy})", fill=(255,80,80,255), font=FONT_MD)
+# place 크로스헤어 (파란)
+if place_ee:
+    px, py = place_ee
+    d_pp.ellipse([px-16,py-16,px+16,py+16], outline=(80,150,255,255), width=4)
+    d_pp.line([(px-30,py),(px+30,py)], fill=(80,150,255,255), width=3)
+    d_pp.line([(px,py-30),(px,py+30)], fill=(80,150,255,255), width=3)
+    d_pp.text((px+20, py-20), f"PLACE ({px},{py})", fill=(120,180,255,255), font=FONT_MD)
+    # pick→place 화살표 (점선)
+    d_pp.line([(cx,cy),(px,py)], fill=(255,255,0,150), width=2)
+img_pick_place = img_pick_place.convert("RGB")
+
+# crop에 CoT 표시
+img_crop_pick = draw_cot_on_crop(pick_crop, {"step4_top_center_crop": pick_tc})
+img_s3 = img_pick_place
 
 t_total = time.time() - t_total
 
@@ -466,53 +647,74 @@ html = f"""<!DOCTYPE html>
 
 <div class="arrow">↓</div>
 
-{card(f"Step 2 · GPT-4o CoT → [{target_idx}번] 타겟", img_s1_target,
-    badges=[("Target", f"[{target_idx}번]", "#1a7a1a"),
+{card(f"Step 2 · GPT-4o CoT — Pick & Place 추론", img_s1_target,
+    badges=[("PICK", f"[{pick_idx}번]", "#1a7a1a"),
+            ("PLACE ref", f"[{place_ref_idx}번]" if place_ref_idx is not None else "없음", "#2c5f8a"),
             ("Conf", cot_res.get('confidence',''), "#7d6608"),
             ("시간", f"{t2:.1f}s", "#444")],
-    rows=[("CoT Step1", f"타겟: {cot_res.get('step1_target','')}"),
-          ("CoT Step2", f"{cot_res.get('step2_description','')[:80]}"),
-          ("CoT Step3", f"윗면: {cot_res.get('step3_top_surface','')[:80]}"),
-          ("CoT Step4", f"crop 내 윗면 중심: u={tc.get('u')}, v={tc.get('v')}"),
-          ("근거", cot_res.get('reason','')[:80])],
-    note="초록 강조 = 타겟 객체 / GPT-4o는 crop 내에서 윗면 중심을 추론",
+    rows=[("Step1 PICK 대상", f"[{pick_idx}번] {cot_res.get('step1_pick_description','')}"),
+          ("  ↳ rationale", cot_res.get('step1_rationale','')),
+          ("Step2 PICK 윗면", f"{cot_res.get('step2_pick_surface','')}"),
+          ("Step2 PICK 중심", f"crop norm ({pick_tc.get('u','')}, {pick_tc.get('v','')})"),
+          ("  ↳ rationale", cot_res.get('step2_rationale','')),
+          ("Step3 PLACE 참조", f"[{place_ref_idx}번] {cot_res.get('step3_place_ref_description','')}" if place_ref_idx is not None else "없음"),
+          ("  ↳ rationale", cot_res.get('step3_rationale','')),
+          ("Step4 PLACE 관계", cot_res.get('step4_place_relation','')),
+          ("Step4 PLACE 위치", f"crop norm ({place_tc.get('u','')}, {place_tc.get('v','')})"),
+          ("  ↳ rationale", cot_res.get('step4_rationale',''))],
+    note="초록 마스크 = PICK 대상 / GPT-4o가 crop에서 윗면 중심 추론",
     color="#145a32")}
 
 <div class="arrow">↓</div>
 
-{card("CoT 결과: 타겟 crop + 윗면 중심점", img_crop_cot,
-    badges=[("crop 내 norm", f"({tc.get('u','')}, {tc.get('v','')})", "#6a0dad"),
-            ("원본 pixel", f"({ee_x}, {ee_y})", "#5b2c6f")],
-    rows=[("crop bbox", f"({bx},{by},{bbw},{bbh}) + pad={pad}"),
-          ("crop 원점", f"({crop_x1}, {crop_y1})"),
-          ("변환", f"crop({u_crop:.2f},{v_crop:.2f}) → 원본({ee_x},{ee_y})")],
-    note="빨간 십자 = crop 이미지 내 윗면 중심점 → 원본 좌표로 변환",
+{card("Step 2b · EE = midpoint(depth최소, y최소)", img_top_crop_vis,
+    badges=[("EE pixel", f"{pick_ee}", "#5b2c6f"),
+            ("depth", pick_depth_str, "#5b2c6f"),
+            ("방식", "기하학적 중점", "#2e4057")],
+    rows=[("Point A (depth 최소)", f"{pt_a} — 윗면 앞쪽 (카메라에 가장 가까운)" if pt_a else "N/A"),
+          ("Point B (y 최소)", f"{pt_b} — 윗면 뒤쪽 (이미지 최상단)" if pt_b else "N/A"),
+          ("EE = (A+B)/2", f"{pick_ee}"),
+          ("depth", pick_depth_str),
+          ("원리", "45도 카메라: A=앞쪽 가장자리, B=뒤쪽 가장자리 → 중점=윗면 중심")],
+    note="초록=A(depth min) / 파란=B(y min) / 빨간=EE(중점) — 파라미터 없이 기하학적으로 정확",
     color="#3d1a5c")}
 
 <div class="arrow">↓</div>
 
-{card("Step 3 · EE 좌표 (원본 이미지)", img_s3,
-    badges=[("pixel (u,v)", f"({ee_x}, {ee_y})", "#6a0dad"),
-            ("depth", depth_str, "#5b2c6f"),
-            ("norm", f"({u_n:.3f}, {v_n:.3f})", "#444")],
-    rows=[("EE pixel (u,v)", f"({ee_x}, {ee_y})"),
-          ("normalized", f"({u_n:.4f}, {v_n:.4f})"),
-          ("depth", f"{depth_str} (EE 픽셀 주변 5x5 median)"),
-          ("좌표 기준", "SAM2 mask bbox 좌표 + CoT crop 내 윗면 중심"),
-          ("다음 단계", "캘리브레이션 행렬 → 로봇 좌표 (X,Y,Z)")],
+{card("Step 3 · Pick & Place EE 좌표", img_s3,
+    badges=[("PICK", f"{pick_ee}", "#c0392b"),
+            ("PLACE", f"{place_ee}" if place_ee else "N/A", "#2980b9"),
+            ("depth", pick_depth_str, "#5b2c6f")],
+    rows=[("PICK EE pixel", f"{pick_ee}"),
+          ("PICK 방식", "depth 기반 윗면 centroid (상위 15%)" if top_result else "VLM crop norm (fallback)"),
+          ("PICK depth", pick_depth_str),
+          ("PLACE EE pixel", f"{place_ee}" if place_ee else "N/A"),
+          ("PLACE depth", place_depth_str),
+          ("관계", cot_res.get('step4_place_relation',''))],
+    note="빨간 십자=PICK 위치 (depth 윗면 중심) / 파란 십자=PLACE 위치 / 노란 선=이동 경로",
     color="#3d1a5c")}
+
+<div class="arrow">↓</div>
+
+{card("Step 4 · Action Sequence", img_s3,
+    badges=[("actions", f"{len(actions)}개", "#8e44ad")],
+    rows=[(f"Action {i+1}", a) for i, a in enumerate(actions)]
+         + [("rationale", cot_res.get('step5_rationale',''))],
+    note=f"GPT-4o가 생성한 pick-and-place action sequence",
+    color="#4a235a")}
 
 </div>
 
 <div class="final">
-  <div class="final-label">EE Target (윗면 중심점)</div>
+  <div class="final-label">Pick & Place Plan</div>
   <div class="final-detail">
-    <b>SAM2 + CoT 결과</b><br>
-    SAM2 → <b>{len(masks)}개 마스크</b> → 타겟 <b>[{target_idx}번]</b><br>
-    CoT Step1 → <b>{cot_res.get('step1_target','')}</b><br>
-    CoT Step4 → crop 내 <b>({tc.get('u','')}, {tc.get('v','')})</b><br>
-    원본 EE pixel → <b>u={ee_x}, v={ee_y}</b> &nbsp;|&nbsp; norm <b>({u_n:.4f}, {v_n:.4f})</b><br>
-    depth → <b>{depth_str}</b><br>
+    <b>지시:</b> {INSTRUCTION}<br><br>
+    <b style="color:#e74c3c">PICK</b> [{pick_idx}번] {cot_res.get('step1_pick_description','')}<br>
+    &nbsp;&nbsp;EE → <b>{pick_ee}</b> &nbsp;|&nbsp; depth <b>{pick_depth_str}</b><br><br>
+    <b style="color:#3498db">PLACE</b> [{place_ref_idx}번] {cot_res.get('step3_place_ref_description','') if place_ref_idx is not None else ''}<br>
+    &nbsp;&nbsp;EE → <b>{place_ee if place_ee else 'N/A'}</b> &nbsp;|&nbsp; depth <b>{place_depth_str}</b><br>
+    &nbsp;&nbsp;관계: <b>{cot_res.get('step4_place_relation','')}</b><br><br>
+    <b style="color:#9b59b6">Actions:</b> {' → '.join(actions)}<br>
     <span style="color:#666;font-size:12px">
       → 캘리브레이션 완료 시: (X, Y, Z)_robot 으로 변환 후 로봇 이동
     </span>
