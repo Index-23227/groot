@@ -22,8 +22,8 @@ from sam2.automatic_mask_generator import SAM2AutomaticMaskGenerator
 from openai import OpenAI
 
 ROOT       = Path(__file__).parent.parent
-IMG_PATH   = ROOT / "data" / "base_images" / "base15.jpg"
-DEPTH_PATH = ROOT / "data" / "base_images" / "base15_depth.npy"
+IMG_PATH   = ROOT / "data" / "base_images" / "base_25.jpg"
+DEPTH_PATH = ROOT / "data" / "base_images" / "base_25_depth.npy"
 OUT_DIR    = ROOT / "results" / "vis_sam2_cot"
 CACHE_DIR  = ROOT / "results" / "sam2_cache"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -36,7 +36,7 @@ DEVICE     = "cuda" if torch.cuda.is_available() else "cpu"
 OPENAI_KEY = next(l.strip() for l in (ROOT/"token").read_text().splitlines()
                   if l.strip().startswith("sk-"))
 
-INSTRUCTION = "파란색 캔을 초록색 캔 옆에 놓아라"
+INSTRUCTION = "초록 작은 원기둥을 하얀 종이컵 안에 넣어줘"
 
 SCENE_OBJECTS = [
     "파란 에너지드링크 캔 (Monster Energy, 키 큰 원통)",
@@ -92,7 +92,80 @@ def make_crop(image, mask_data, padding=12):
     return Image.fromarray(arr).convert("RGB").crop((x1, y1, x2, y2))
 
 
-# ── GPT-4o CoT (crops 기반, pick & place 대응) ───────────────
+# ── Step 0: Task Decomposition ────────────────────────────────
+def decompose_task(client, instruction):
+    """
+    자연어 명령 → (task, target, relation) 리스트로 분해.
+
+    예: "초록 원기둥을 종이컵 안에 넣어줘"
+    → [{"task":"pick","target":"초록 원기둥"},
+       {"task":"place","target":"종이컵","relation":"안에"}]
+    """
+    prompt = (
+        f"지시: {instruction}\n\n"
+        "이 지시를 로봇의 기본 동작(pick, place)으로 분해하세요.\n\n"
+        "규칙:\n"
+        "- pick: 집어야 할 객체\n"
+        "- place: 놓을 위치의 참조 객체 + 관계(안에/위에/옆에/앞에/뒤에)\n"
+        "- 참조 객체가 없으면 target을 null로\n\n"
+        '반드시 아래 JSON 형식으로만 답하세요:\n'
+        '{"tasks": [\n'
+        '  {"task": "pick", "target": "집을 객체"},\n'
+        '  {"task": "place", "target": "참조 객체", "relation": "안에"}\n'
+        '],'
+        ' "rationale": "분해 근거"}'
+    )
+    for attempt in range(3):
+        try:
+            r = client.chat.completions.create(
+                model="gpt-4o", temperature=0.1, max_tokens=300,
+                response_format={"type": "json_object"},
+                messages=[{"role": "user", "content": [{"type": "text", "text": prompt}]}],
+            )
+            raw = r.choices[0].message.content
+            s, e = raw.find("{"), raw.rfind("}")+1
+            return json.loads(raw[s:e]) if s >= 0 and e > 0 else {}
+        except Exception as ex:
+            wait = 15 if "429" in str(ex) else 8
+            print(f"    retry {attempt+1}/3 ({wait}s)")
+            time.sleep(wait)
+    return {}
+
+
+# ── GPT-4o: 객체 식별 (pick 또는 place 각각) ─────────────────
+def identify_object(client, crops, target_description):
+    """crops 중에서 target_description에 해당하는 객체 번호를 식별"""
+    prompt = (
+        f"아래 {len(crops)}개 이미지는 각각 씬에서 분리된 개별 객체입니다.\n"
+        "배경은 흰색으로 처리되어 있고, 객체만 보입니다.\n\n"
+        f"다음 객체를 찾으세요: {target_description}\n\n"
+        '반드시 JSON으로만: {"index": 0, "description": "객체 설명", "rationale": "근거"}'
+    )
+    content = [{"type": "text", "text": prompt}]
+    for i, c in enumerate(crops):
+        content += [
+            {"type": "text", "text": f"[{i}번]"},
+            {"type": "image_url",
+             "image_url": {"url": f"data:image/jpeg;base64,{_to_b64(c)}"}},
+        ]
+    for attempt in range(3):
+        try:
+            r = client.chat.completions.create(
+                model="gpt-4o", temperature=0.1, max_tokens=200,
+                response_format={"type": "json_object"},
+                messages=[{"role": "user", "content": content}],
+            )
+            raw = r.choices[0].message.content
+            s, e = raw.find("{"), raw.rfind("}")+1
+            return json.loads(raw[s:e]) if s >= 0 and e > 0 else {}
+        except Exception as ex:
+            wait = 15 if "429" in str(ex) else 8
+            print(f"    retry {attempt+1}/3 ({wait}s)")
+            time.sleep(wait)
+    return {}
+
+
+# ── (레거시) GPT-4o CoT 통합 호출 — 하위 호환용 ──────────────
 def identify_cot_with_crops(client, crops, instruction, scene_objects):
     """
     SAM2 crops → GPT-4o CoT.
@@ -308,7 +381,7 @@ d0.text((ROI_X1+8, 8), f"ROI: {ROI_X2-ROI_X1}x{H}px", fill=(0,200,255), font=FON
 
 # ── Step 1: SAM2 blind segmentation (가운데 ROI만) ───────────
 roi_rgb = rgb_np[:, ROI_X1:ROI_X2]
-cache_path = CACHE_DIR / "base15_roi_masks.pkl"
+cache_path = CACHE_DIR / "base25_roi_masks.pkl"
 print(f"\n[Step 1] SAM2-tiny segmentation (ROI)...")
 t1 = time.time()
 if cache_path.exists():
@@ -345,44 +418,75 @@ crops = [make_crop(rgb_np, m) for m in masks]
 img_s1 = draw_sam2_overlay(rgb_np, masks)
 img_crops = draw_crop_grid(masks, crops)
 
-# ── Step 2: GPT-4o CoT ──────────────────────────────────────
+# ── Step 2a: Task Decomposition ──────────────────────────────
 client = OpenAI(api_key=OPENAI_KEY)
-print(f"\n[Step 2] GPT-4o CoT ({len(crops)}개 crops)...")
-t2 = time.time()
-cot_res = identify_cot_with_crops(client, crops, INSTRUCTION, scene_objects=None)
-t2 = time.time() - t2
+print(f"\n[Step 2a] Task Decomposition...")
+t2a = time.time()
+decomp = decompose_task(client, INSTRUCTION)
+t2a = time.time() - t2a
 
-# ── pick 객체 ────────────────────────────────────────────────
-pick_idx = min(int(cot_res.get("step1_pick_index", 0)), len(masks)-1)
+tasks_list = decomp.get("tasks", [])
+print(f"  분해 결과 ({t2a:.1f}s):")
+for t_item in tasks_list:
+    rel = f", {t_item.get('relation','')}" if t_item.get('relation') else ""
+    print(f"    ({t_item['task']}, {t_item.get('target','')}{rel})")
+print(f"  rationale: {decomp.get('rationale','')}")
+
+# pick/place task 추출
+pick_task = next((t for t in tasks_list if t["task"] == "pick"), None)
+place_task = next((t for t in tasks_list if t["task"] == "place"), None)
+
+if not pick_task:
+    print("  ERROR: pick task 없음!")
+    sys.exit(1)
+
+# ── Step 2b: 개별 객체 식별 ──────────────────────────────────
+print(f"\n[Step 2b] PICK 객체 식별: '{pick_task['target']}'...")
+t2b_pick = time.time()
+pick_res = identify_object(client, crops, pick_task["target"])
+t2b_pick = time.time() - t2b_pick
+pick_idx = min(int(pick_res.get("index", 0)), len(masks)-1)
 pick_mask = masks[pick_idx]
 pick_crop = crops[pick_idx]
-pick_tc = cot_res.get("step2_pick_top_center", {})
+print(f"  → [{pick_idx}번] {pick_res.get('description','')}  ({t2b_pick:.1f}s)")
+print(f"    rationale: {pick_res.get('rationale','')}")
 
-# ── place 참조 객체 ──────────────────────────────────────────
-place_ref_idx = cot_res.get("step3_place_ref_index")
+place_ref_idx = None
 place_mask = None
 place_crop = None
-place_tc = cot_res.get("step4_place_position", {})
-if place_ref_idx is not None:
-    place_ref_idx = min(int(place_ref_idx), len(masks)-1)
+place_relation = ""
+place_tc = {}
+
+if place_task and place_task.get("target"):
+    print(f"\n[Step 2c] PLACE 참조 식별: '{place_task['target']}'...")
+    t2b_place = time.time()
+    place_res = identify_object(client, crops, place_task["target"])
+    t2b_place = time.time() - t2b_place
+    place_ref_idx = min(int(place_res.get("index", 0)), len(masks)-1)
     place_mask = masks[place_ref_idx]
     place_crop = crops[place_ref_idx]
+    place_relation = place_task.get("relation", "옆에")
+    print(f"  → [{place_ref_idx}번] {place_res.get('description','')}  관계: {place_relation}  ({t2b_place:.1f}s)")
+    print(f"    rationale: {place_res.get('rationale','')}")
 
-actions = cot_res.get("step5_actions", [])
+t2 = t2a + t2b_pick + (t2b_place if place_task and place_task.get("target") else 0)
 
-print(f"  PICK:  [{pick_idx}번] {cot_res.get('step1_pick_description','')}")
-print(f"    rationale: {cot_res.get('step1_rationale','')}")
-print(f"         윗면: {cot_res.get('step2_pick_surface','')}")
-print(f"         crop norm: u={pick_tc.get('u')}, v={pick_tc.get('v')}")
-print(f"    rationale: {cot_res.get('step2_rationale','')}")
-print(f"  PLACE: [{place_ref_idx}번] {cot_res.get('step3_place_ref_description','')}")
-print(f"    rationale: {cot_res.get('step3_rationale','')}")
-print(f"         관계: {cot_res.get('step4_place_relation','')}")
-print(f"         crop norm: u={place_tc.get('u')}, v={place_tc.get('v')}")
-print(f"    rationale: {cot_res.get('step4_rationale','')}")
-print(f"  ACTIONS: {actions}")
-print(f"    rationale: {cot_res.get('step5_rationale','')}")
-print(f"  conf={cot_res.get('confidence')}  ({t2:.1f}s)")
+# 하위 호환용 cot_res 구성
+actions = ["move_to_pick", "grasp", "lift", "move_to_place", "release"]
+pick_tc = {}
+cot_res = {
+    "step1_pick_index": pick_idx,
+    "step1_pick_description": pick_res.get("description", ""),
+    "step1_rationale": pick_res.get("rationale", ""),
+    "step3_place_ref_index": place_ref_idx,
+    "step3_place_ref_description": place_res.get("description", "") if place_task and place_task.get("target") else "",
+    "step3_rationale": place_res.get("rationale", "") if place_task and place_task.get("target") else "",
+    "step4_place_relation": place_relation,
+    "step4_place_position": place_tc,
+    "step5_actions": actions,
+    "confidence": pick_res.get("confidence", 0.9),
+    "decomposition": decomp,
+}
 
 # ── crop 좌표 → 원본 좌표 변환 함수 ──────────────────────────
 def crop_to_original(mask_data, crop_pil, u_norm, v_norm, padding=12):
@@ -515,14 +619,108 @@ if pt_a and pt_b and obj_bbox_xywh:
 else:
     img_top_crop_vis = pick_crop.copy()
 
-# PLACE EE
+# PLACE EE — 관계에 따라 다른 로직
+def compute_place_ee_on_top(place_mask, depth_np):
+    """'위에' 또는 '안에': pick과 동일한 윗면 중심 로직"""
+    result = compute_top_surface_ee(place_mask, depth_np)
+    if result[0] is not None:
+        ee, depth_mm, _, _, _, _ = result
+        return ee, depth_mm
+    return None, None
+
+def compute_place_ee_beside(place_mask, all_masks, depth_np, H, W, margin=1.5):
+    """'옆에': 참조 객체 주변에서 가장 여유로운 방향에 EE 배치"""
+    bx, by, bw, bh = [int(v) for v in place_mask["bbox"]]
+    cx_ref = bx + bw // 2
+    cy_ref = by + bh // 2
+
+    # 다른 모든 mask의 점유 맵
+    occupied = np.zeros((H, W), dtype=bool)
+    for m in all_masks:
+        occupied |= m["segmentation"]
+
+    # 4방향 탐색: 오른쪽, 왼쪽, 아래, 위
+    obj_size = max(bw, bh)
+    offset = int(obj_size * margin)
+    candidates = [
+        ("right", cx_ref + offset, cy_ref),
+        ("left",  cx_ref - offset, cy_ref),
+        ("down",  cx_ref, cy_ref + offset),
+        ("up",    cx_ref, cy_ref - offset),
+    ]
+
+    best_dir = None
+    best_score = -1
+    best_pos = None
+
+    for direction, px, py in candidates:
+        # 범위 체크
+        if px < 20 or px >= W-20 or py < 20 or py >= H-20:
+            continue
+        # 주변 영역의 빈 공간 비율 (obj_size x obj_size 영역)
+        r = obj_size // 2
+        patch = occupied[max(0,py-r):min(H,py+r), max(0,px-r):min(W,px+r)]
+        if patch.size == 0:
+            continue
+        free_ratio = 1.0 - (patch.sum() / patch.size)
+        if free_ratio > best_score:
+            best_score = free_ratio
+            best_dir = direction
+            best_pos = (px, py)
+
+    if best_pos is None:
+        # fallback: 오른쪽
+        best_pos = (cx_ref + offset, cy_ref)
+        best_dir = "right (fallback)"
+
+    # depth lookup
+    dpx, dpy = best_pos
+    dpx = max(0, min(W-1, dpx))
+    dpy = max(0, min(H-1, dpy))
+    _, depth_str = depth_lookup(depth_np, dpx, dpy, H, W, r=10)
+
+    print(f"    [PLACE 옆에] 4방향 탐색:")
+    for direction, px, py in candidates:
+        if px < 20 or px >= W-20 or py < 20 or py >= H-20:
+            print(f"      {direction}: 범위 밖")
+            continue
+        r = obj_size // 2
+        patch = occupied[max(0,py-r):min(H,py+r), max(0,px-r):min(W,px+r)]
+        fr = 1.0 - (patch.sum() / patch.size) if patch.size > 0 else 0
+        marker = " ★" if (px, py) == best_pos else ""
+        print(f"      {direction}: ({px},{py}) free={fr:.0%}{marker}")
+
+    return best_pos, depth_str, best_dir
+
 place_ee = None
 place_depth_str = "N/A"
+place_method = ""
+
 if place_mask is not None and place_crop is not None:
-    place_u = float(place_tc.get("u", 0.5))
-    place_v = float(place_tc.get("v", 0.5))
-    place_ee = crop_to_original(place_mask, place_crop, place_u, place_v)
-    _, place_depth_str = depth_lookup(depth_np, *place_ee, H, W)
+    relation = cot_res.get("step4_place_relation", "옆에")
+
+    if relation in ("위에", "안에"):
+        # 위에/안에: pick과 동일한 윗면 중심 로직
+        place_ee_result, place_depth_mm = compute_place_ee_on_top(place_mask, depth_np)
+        if place_ee_result:
+            place_ee = place_ee_result
+            place_depth_str = f"{place_depth_mm:.0f}mm"
+            place_method = f"윗면 중심 (관계: {relation})"
+            print(f"\n  [PLACE] '{relation}' → 윗면 중심 로직 (pick과 동일)")
+            print(f"    PLACE EE: {place_ee}  depth: {place_depth_str}")
+        else:
+            place_u = float(place_tc.get("u", 0.5))
+            place_v = float(place_tc.get("v", 0.5))
+            place_ee = crop_to_original(place_mask, place_crop, place_u, place_v)
+            _, place_depth_str = depth_lookup(depth_np, *place_ee, H, W)
+            place_method = f"VLM fallback (관계: {relation})"
+    else:
+        # 옆에/앞에/뒤에: 주변 여유 공간 탐색
+        print(f"\n  [PLACE] '{relation}' → 주변 여유 공간 탐색")
+        place_ee, place_depth_str, best_dir = compute_place_ee_beside(
+            place_mask, masks, depth_np, H, W)
+        place_method = f"여유 공간 ({best_dir}, 관계: {relation})"
+        print(f"    PLACE EE: {place_ee}  depth: {place_depth_str}  방향: {best_dir}")
 
 print(f"\n[결과]")
 print(f"  PICK  EE: {pick_ee}  depth: {pick_depth_str}")
@@ -654,22 +852,27 @@ html = f"""<!DOCTYPE html>
 
 <div class="arrow">↓</div>
 
-{card(f"Step 2 · GPT-4o CoT — Pick & Place 추론", img_s1_target,
+{card("Step 2a · Task Decomposition", img_s0,
+    badges=[("tasks", f"{len(tasks_list)}개", "#8e44ad"),
+            ("시간", f"{t2a:.1f}s", "#444")],
+    rows=[(f"Task {i+1}", f"({t_item['task']}, {t_item.get('target','')}" + (f", {t_item['relation']}" if t_item.get('relation') else "") + ")")
+          for i, t_item in enumerate(tasks_list)]
+         + [("rationale", decomp.get('rationale',''))],
+    note="자연어 명령 → (task, target, relation) 리스트로 분해. LLM 1회 호출.",
+    color="#4a235a")}
+
+<div class="arrow">↓</div>
+
+{card(f"Step 2b · 객체 식별 — PICK [{pick_idx}번] + PLACE [{place_ref_idx}번]", img_s1_target,
     badges=[("PICK", f"[{pick_idx}번]", "#1a7a1a"),
             ("PLACE ref", f"[{place_ref_idx}번]" if place_ref_idx is not None else "없음", "#2c5f8a"),
-            ("Conf", cot_res.get('confidence',''), "#7d6608"),
             ("시간", f"{t2:.1f}s", "#444")],
-    rows=[("Step1 PICK 대상", f"[{pick_idx}번] {cot_res.get('step1_pick_description','')}"),
+    rows=[("PICK 대상", f"[{pick_idx}번] {cot_res.get('step1_pick_description','')}"),
           ("  ↳ rationale", cot_res.get('step1_rationale','')),
-          ("Step2 PICK 윗면", f"{cot_res.get('step2_pick_surface','')}"),
-          ("Step2 PICK 중심", f"crop norm ({pick_tc.get('u','')}, {pick_tc.get('v','')})"),
-          ("  ↳ rationale", cot_res.get('step2_rationale','')),
-          ("Step3 PLACE 참조", f"[{place_ref_idx}번] {cot_res.get('step3_place_ref_description','')}" if place_ref_idx is not None else "없음"),
+          ("PLACE 참조", f"[{place_ref_idx}번] {cot_res.get('step3_place_ref_description','')}" if place_ref_idx is not None else "없음"),
           ("  ↳ rationale", cot_res.get('step3_rationale','')),
-          ("Step4 PLACE 관계", cot_res.get('step4_place_relation','')),
-          ("Step4 PLACE 위치", f"crop norm ({place_tc.get('u','')}, {place_tc.get('v','')})"),
-          ("  ↳ rationale", cot_res.get('step4_rationale',''))],
-    note="초록 마스크 = PICK 대상 / GPT-4o가 crop에서 윗면 중심 추론",
+          ("관계", place_relation)],
+    note="Task decomposition 결과를 바탕으로 SAM2 crops에서 각각 객체 식별 (LLM 2회)",
     color="#145a32")}
 
 <div class="arrow">↓</div>
@@ -696,9 +899,10 @@ html = f"""<!DOCTYPE html>
           ("PICK 방식", "depth 기반 윗면 centroid (상위 15%)" if top_result else "VLM crop norm (fallback)"),
           ("PICK depth", pick_depth_str),
           ("PLACE EE pixel", f"{place_ee}" if place_ee else "N/A"),
+          ("PLACE 방식", place_method),
           ("PLACE depth", place_depth_str),
           ("관계", cot_res.get('step4_place_relation',''))],
-    note="빨간 십자=PICK 위치 (depth 윗면 중심) / 파란 십자=PLACE 위치 / 노란 선=이동 경로",
+    note="빨간 십자=PICK / 파란 십자=PLACE / 위에·안에→윗면중심 / 옆에→여유공간탐색",
     color="#3d1a5c")}
 
 <div class="arrow">↓</div>
@@ -737,7 +941,7 @@ html = f"""<!DOCTYPE html>
 </body>
 </html>"""
 
-out = OUT_DIR / "base15_sam2_cot.html"
+out = OUT_DIR / "base25_sam2_cot.html"
 out.write_text(html, encoding="utf-8")
 print(f"\n저장: {out}")
 print(f"총 소요: {t_total:.1f}s")
