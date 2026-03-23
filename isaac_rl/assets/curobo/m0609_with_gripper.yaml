@@ -1,0 +1,31 @@
+robot_cfg:
+  kinematics:
+    urdf_path: "/home/danielc174/projects/Robot-Hackathon/assets/m0609_with_gripper.urdf"
+    asset_root_path: "/home/danielc174/projects/Robot-Hackathon/assets"
+    base_link: "base_link"
+    ee_link: "robotiq_85_base_link"
+    link_names: null
+    lock_joints: null
+    extra_links: null
+    collision_link_names: null
+    collision_spheres: null
+    collision_sphere_buffer: 0.005
+    extra_collision_spheres: {}
+    self_collision_ignore: null
+    self_collision_buffer: null
+    use_global_cumul: True
+    mesh_link_names: null
+
+  cspace:
+    joint_names:
+      - "joint_1"
+      - "joint_2"
+      - "joint_3"
+      - "joint_4"
+      - "joint_5"
+      - "joint_6"
+    retract_config: [1.5708, 0.0, 2.0944, 3.1416, -1.0472, 0.0]
+    null_space_weight: [1, 1, 1, 1, 1, 1]
+    cspace_distance_weight: [1, 1, 1, 1, 1, 1]
+    max_jerk: 500.0
+    max_acceleration: 15.0

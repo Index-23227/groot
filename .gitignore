@@ -14,3 +14,4 @@ wandb/
 token
 token.*
 .git-credentials
+isaac_rl/assets/robotiq_arg85_description/
