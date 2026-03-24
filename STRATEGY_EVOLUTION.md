@@ -156,9 +156,50 @@ Pipeline A(SAM2 + CoT)가 승리. 이후 CoT 방식이 계속 진화:
 
 CoT가 단순 "물체 찾기"에서 "파지점 계산 + End-Effector 자세 결정"까지 확장.
 
+### 핵심 알고리즘: 윗면 EE 계산 (`compute_top_surface_ee`)
+
+VLM이 타겟을 식별한 후, 실제 파지점(End-Effector 위치)은 **파라미터 없이 기하학적으로** 계산한다:
+
+```
+SAM2 마스크 + Depth 이미지
+         ↓
+    ┌────┴────┐
+    ▼         ▼
+ Point A    Point B
+(depth 최소) (y 최소)
+    └────┬────┘
+         ▼
+   EE = midpoint(A, B)
+```
+
+**Point A — "카메라에 가장 가까운 점"** (depth 최소):
+```python
+d_min = depths.min()
+near_th = d_min + max((depths.max() - d_min) * 0.05, 3)  # 상위 5% or 최소 3mm
+near = depths <= near_th
+pt_a = centroid(xs[near], ys[near])
+```
+마스크 내 depth 값이 가장 작은(카메라에 가장 가까운) 상위 5% 픽셀 그룹의 centroid. 단일 최솟값 대신 그룹 centroid를 쓰는 이유는 센서 노이즈에 의한 불안정을 방지하기 위함.
+
+**Point B — "이미지에서 가장 위쪽 점"** (y 최소):
+```python
+y_min = ys.min()
+y_th = y_min + max((ys.max() - y_min) * 0.05, 3)  # 상위 5% or 최소 3px
+top_y = ys <= y_th
+pt_b = centroid(xs[top_y], ys[top_y])
+```
+마스크 내 y좌표가 가장 작은(이미지 상단 = 물체 윗면) 상위 5% 픽셀 그룹의 centroid.
+
+**왜 두 점의 중점인가?**
+- Point A(depth 최소)만 쓰면: 물체 앞면 중앙을 잡게 될 수 있음 (옆면을 집으려 함)
+- Point B(y 최소)만 쓰면: 물체 윗면 가장자리를 잡게 될 수 있음 (불안정)
+- 중점: 물체 윗면의 안정적인 중심부 — 위에서 내려잡기에 최적
+
+이 방식의 장점은 **학습이나 하이퍼파라미터 튜닝 없이** SAM2 마스크와 depth 이미지만으로 파지점을 결정한다는 것.
+
 ### 왜?
 
-> 구조화된 추론(CoT)이 단순 bbox 검출보다 로봇 조작에 필요한 정보를 더 풍부하게 제공했다. "어디를 잡을까"뿐 아니라 "어떤 각도로, 어떤 순서로"까지.
+> 구조화된 추론(CoT)이 단순 bbox 검출보다 로봇 조작에 필요한 정보를 더 풍부하게 제공했다. "어디를 잡을까"뿐 아니라 "어떤 각도로, 어떤 순서로"까지. 그리고 실제 파지점은 VLM에 의존하지 않고, 기하학적 계산으로 정밀하게 결정했다.
 
 ---
 
